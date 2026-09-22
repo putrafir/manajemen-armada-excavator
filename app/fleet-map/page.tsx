@@ -253,7 +253,7 @@ export default function FleetMapPage() {
               <div>
                 <div className="text-sm font-bold text-red-200">Hydraulic Cavitation Detected</div>
                 <div className="text-xs text-red-300/80 mt-1 leading-relaxed">
-                  High-frequency pump oscillation at <strong>142 Hz</strong>. Immediate pressure shock on breakout cylinder distributor.
+                  142 Hz acoustic oscillation. High pressure shock on spool valve.
                 </div>
               </div>
             </div>

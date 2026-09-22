@@ -30,7 +30,7 @@ export default function AnalyticsPage() {
             Fleet Stress & Predictive Telemetry Analytics
           </h1>
           <p className="text-xs text-slate-400 mt-1 font-mono">
-            Real-time CMSI fatigue modeling vs OEM baseline wear metrics across digging nodes.
+            Real-time CMSI fatigue modeling vs OEM baseline.
           </p>
         </div>
 
@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
             <span className="text-emerald-400 text-xs font-bold">+18.4% hrs</span>
           </div>
           <div className="text-[11px] text-slate-400 mt-2 font-sans">
-            Mean Time Between Anomalies across basalt benches
+            MTBA across active benches
           </div>
         </div>
 
@@ -74,7 +74,7 @@ export default function AnalyticsPage() {
             <span className="text-slate-500 text-xs font-bold">/ 100</span>
           </div>
           <div className="text-[11px] text-amber-400 mt-2 font-sans">
-            Baseline benchmark: 55.0 (+9.2 pt elevation)
+            Benchmark: 55.0 (+9.2 elevation)
           </div>
         </div>
 
@@ -88,7 +88,7 @@ export default function AnalyticsPage() {
             <span className="text-slate-400 text-xs font-semibold">hrs saved</span>
           </div>
           <div className="text-[11px] text-slate-400 mt-2 font-sans">
-            12 early hydraulic shear warnings acknowledged
+            12 early fault mitigations
           </div>
         </div>
 
@@ -102,7 +102,7 @@ export default function AnalyticsPage() {
             <span className="text-cyan-400 text-xs font-bold">Billion Pts/Shift</span>
           </div>
           <div className="text-[11px] text-slate-400 mt-2 font-sans">
-            99.98% packet synchronization over Private LTE
+            99.98% edge sync rate
           </div>
         </div>
       </div>
@@ -194,7 +194,7 @@ export default function AnalyticsPage() {
                 <div className="text-orange-400 font-bold text-base">+38%</div>
                 <div className="text-white font-semibold mt-0.5">Hydraulic Shockwave</div>
                 <div className="text-[11px] text-slate-400 font-sans mt-1">
-                  Transient pressure relief spikes during basalt breakout penetration.
+                  Transient relief spikes in basalt strata.
                 </div>
               </div>
 
@@ -202,7 +202,7 @@ export default function AnalyticsPage() {
                 <div className="text-orange-400 font-bold text-base">+42%</div>
                 <div className="text-white font-semibold mt-0.5">Quartz Micro-Abrasives</div>
                 <div className="text-[11px] text-slate-400 font-sans mt-1">
-                  High mineral hardness eroding cylinder wiper seals and spool valve walls.
+                  Quartz micro-abrasives on wiper seals.
                 </div>
               </div>
 
@@ -210,7 +210,7 @@ export default function AnalyticsPage() {
                 <div className="text-orange-400 font-bold text-base">+20%</div>
                 <div className="text-white font-semibold mt-0.5">Dynamic Slew Shock</div>
                 <div className="text-[11px] text-slate-400 font-sans mt-1">
-                  Centrifugal torque resistance on uneven -140m bench grades.
+                  Centrifugal torque on -140m grade.
                 </div>
               </div>
             </div>
@@ -225,7 +225,7 @@ export default function AnalyticsPage() {
               <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">RISK DISTRIBUTION</div>
               <h3 className="text-base font-black text-white mt-1">Fleet Machine Wear Delta Gap</h3>
               <p className="text-xs text-slate-400 font-sans mt-0.5">
-                Variance between logged operating hours and true mechanical structural fatigue.
+                Logged operating hours vs true mechanical fatigue.
               </p>
             </div>
 

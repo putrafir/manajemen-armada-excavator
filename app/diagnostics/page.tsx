@@ -4,37 +4,104 @@ import React, { useState } from "react";
 import { 
   Cpu, 
   ShieldAlert, 
-  AlertTriangle, 
   Activity, 
   Layers, 
-  CheckCircle2, 
-  ArrowRight, 
   Wrench, 
   FileText, 
-  Share2, 
-  Radio, 
-  ChevronRight,
-  Gauge,
-  Sliders,
-  Flame,
-  Zap
+  Clock
 } from "lucide-react";
 import { useTelemetry } from "@/context/TelemetryContext";
+import WorkOrderModal from "@/components/WorkOrderModal";
+
+interface AnomalyLog {
+  id: string;
+  time: string;
+  unit: string;
+  subsystem: string;
+  description: string;
+  severity: "critical" | "high" | "resolved";
+  cmsi: number;
+}
+
+const mockLogs: AnomalyLog[] = [
+  {
+    id: "LOG-9921",
+    time: "23:42:15",
+    unit: "EX-04",
+    subsystem: "Hydraulic Spool Valve",
+    description: "142 Hz cavitation resonance (34.8 MPa)",
+    severity: "critical",
+    cmsi: 94
+  },
+  {
+    id: "LOG-9918",
+    time: "23:18:04",
+    unit: "EX-04",
+    subsystem: "Manifold Fluid Temp",
+    description: "Thermal excursion 96.4°C (>85°C threshold)",
+    severity: "high",
+    cmsi: 91
+  },
+  {
+    id: "LOG-9905",
+    time: "22:50:11",
+    unit: "EX-12",
+    subsystem: "Slew Gearbox Bearing",
+    description: "Harmonic radial vibration 4.8 mm/s @ 88 Hz",
+    severity: "high",
+    cmsi: 83
+  },
+  {
+    id: "LOG-9892",
+    time: "21:30:45",
+    unit: "EX-27",
+    subsystem: "Distributor O-Ring",
+    description: "Internal bypass flow drop 12.4 L/min",
+    severity: "high",
+    cmsi: 78
+  },
+  {
+    id: "LOG-9870",
+    time: "20:15:00",
+    unit: "EX-08",
+    subsystem: "Cylinder Wiper Seal",
+    description: "Quartz micro-scoring resolved via flush",
+    severity: "resolved",
+    cmsi: 58
+  },
+  {
+    id: "LOG-9844",
+    time: "19:04:22",
+    unit: "EX-31",
+    subsystem: "Cooler Exchanger",
+    description: "Debris blockage cleared, operating nominal",
+    severity: "resolved",
+    cmsi: 38
+  }
+];
 
 export default function DiagnosticsPage() {
-  const { telemetry, isStreaming } = useTelemetry();
+  const { telemetry } = useTelemetry();
   const ex04 = telemetry?.units["EX-04"];
   const [activeUnit, setActiveUnit] = useState("EX-04");
-  const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"telemetry" | "events">("telemetry");
+  const [eventFilter, setEventFilter] = useState<"all" | "critical" | "high" | "resolved">("all");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalUnit, setModalUnit] = useState("EX-04");
 
-  const handleDispatch = () => {
-    setDispatchStatus("Work Order #WO-8841 Dispatched to Field Technician Tablet");
-    setTimeout(() => setDispatchStatus(null), 5000);
+  const openWorkOrder = (unit: string) => {
+    setModalUnit(unit);
+    setModalOpen(true);
   };
+
+  const filteredLogs = mockLogs.filter(log => {
+    if (eventFilter === "all") return true;
+    return log.severity === eventFilter;
+  });
 
   return (
     <div className="space-y-6 max-w-[1560px] mx-auto font-sans pb-12">
-      {/* 1. Header Bar: Target Unit & Context */}
+      {/* 1. Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#0F1626] border border-white/5 p-5 rounded-2xl shadow-xl">
         <div>
           <div className="flex items-center gap-2.5">
@@ -43,63 +110,74 @@ export default function DiagnosticsPage() {
             </div>
             <div>
               <div className="text-[10px] font-mono font-bold uppercase tracking-widest text-orange-400">
-                Root-Cause Operations Intelligence Console
+                Operations Intelligence Console
               </div>
               <h1 className="text-xl font-black text-white tracking-tight">
-                Neural Fault Diagnostic & Prescriptive Reasoning
+                Neural Fault Diagnostics
               </h1>
             </div>
           </div>
-          <p className="text-xs text-slate-400 mt-1.5 ml-10">
-            Multi-sensor signal extraction, rock strata contextualization, and deterministic root-cause breakdown.
+          <p className="text-xs text-slate-400 mt-1 font-mono">
+            Deterministic signal extraction & rock strata anomaly analysis.
           </p>
         </div>
 
-        {/* Unit Selector Pills */}
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <button
-            onClick={() => setActiveUnit("EX-04")}
-            className={`px-3 py-1.5 rounded-lg border transition cursor-pointer flex items-center gap-2 ${
-              activeUnit === "EX-04"
-                ? "bg-red-950/60 border-red-500 text-red-200 shadow-md shadow-red-950/50"
-                : "bg-slate-900 border-white/5 text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-            <strong>EX-04</strong>
-            <span className="text-[10px] text-red-400">Cavitation (CMSI 94)</span>
-          </button>
+        {/* Navigation Tabs & Unit Badges */}
+        <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
+          <div className="flex items-center bg-black/40 p-1 rounded-xl border border-white/5">
+            <button
+              onClick={() => setActiveTab("telemetry")}
+              className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                activeTab === "telemetry"
+                  ? "bg-orange-600 text-white shadow-md shadow-orange-950/40"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Telemetry & FFT
+            </button>
+            <button
+              onClick={() => setActiveTab("events")}
+              className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                activeTab === "events"
+                  ? "bg-orange-600 text-white shadow-md shadow-orange-950/40"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span>Anomaly Feed</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-red-500 text-white text-[9px]">2</span>
+            </button>
+          </div>
 
-          <button
-            onClick={() => setActiveUnit("EX-12")}
-            className={`px-3 py-1.5 rounded-lg border transition cursor-pointer flex items-center gap-2 ${
-              activeUnit === "EX-12"
-                ? "bg-amber-950/60 border-amber-500 text-amber-200"
-                : "bg-slate-900 border-white/5 text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            <strong>EX-12</strong>
-            <span className="text-[10px] text-amber-400">Slew Harmonic</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setActiveUnit("EX-04")}
+              className={`px-3 py-1.5 rounded-lg border transition cursor-pointer flex items-center gap-1.5 ${
+                activeUnit === "EX-04"
+                  ? "bg-red-950/60 border-red-500 text-red-200"
+                  : "bg-slate-900 border-white/5 text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+              <strong>EX-04</strong>
+            </button>
 
-          <button
-            onClick={() => setActiveUnit("EX-27")}
-            className={`px-3 py-1.5 rounded-lg border transition cursor-pointer flex items-center gap-2 ${
-              activeUnit === "EX-27"
-                ? "bg-amber-950/60 border-amber-500 text-amber-200"
-                : "bg-slate-900 border-white/5 text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            <strong>EX-27</strong>
-            <span className="text-[10px] text-amber-400">Seal Bypass</span>
-          </button>
+            <button
+              onClick={() => setActiveUnit("EX-12")}
+              className={`px-3 py-1.5 rounded-lg border transition cursor-pointer flex items-center gap-1.5 ${
+                activeUnit === "EX-12"
+                  ? "bg-amber-950/60 border-amber-500 text-amber-200"
+                  : "bg-slate-900 border-white/5 text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              <strong>EX-12</strong>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 2. Critical Summary Banner */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 font-mono text-xs">
+      {/* 2. Top Summary KPI Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 font-mono text-xs">
         <div className="bg-[#0F1626] border border-white/5 p-3.5 rounded-xl">
           <div className="text-[10px] text-slate-500 uppercase">Target Asset</div>
           <div className="text-sm font-bold text-white mt-1">CAT 6040 FS</div>
@@ -107,15 +185,15 @@ export default function DiagnosticsPage() {
         </div>
 
         <div className="bg-[#0F1626] border border-white/5 p-3.5 rounded-xl">
-          <div className="text-[10px] text-slate-500 uppercase">Rock Strata (1D-CNN)</div>
-          <div className="text-sm font-bold text-orange-400 mt-1">Batu (Hard Basalt)</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">184 MPa (vs 144 MPa rating)</div>
+          <div className="text-[10px] text-slate-500 uppercase">Rock Formation</div>
+          <div className="text-sm font-bold text-orange-400 mt-1">Hard Basalt</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">184 MPa (vs 144 limit)</div>
         </div>
 
         <div className="bg-[#0F1626] border border-white/5 p-3.5 rounded-xl">
-          <div className="text-[10px] text-slate-500 uppercase">Anomaly Score (Autoenc)</div>
+          <div className="text-[10px] text-slate-500 uppercase">Anomaly Score</div>
           <div className="text-sm font-bold text-red-400 mt-1">MSE 115.33</div>
-          <div className="text-[10px] text-red-400/80 mt-0.5">380,000x over threshold</div>
+          <div className="text-[10px] text-red-400/80 mt-0.5">Critical Outlier</div>
         </div>
 
         <div className="bg-[#0F1626] border border-white/5 p-3.5 rounded-xl">
@@ -124,323 +202,447 @@ export default function DiagnosticsPage() {
           <div className="text-[10px] text-slate-400 mt-0.5">+1,640 hrs OEM Delta</div>
         </div>
 
-        <div className="bg-red-950/40 border border-red-500/40 p-3.5 rounded-xl col-span-2 lg:col-span-1">
-          <div className="text-[10px] text-red-400 uppercase font-bold">Remaining Useful Life (RUL)</div>
-          <div className="text-lg font-black text-red-200 mt-0.5">48 Operating Hrs</div>
-          <div className="text-[10px] text-red-300/80 mt-0.5 font-sans font-semibold">Immediate Servicing Required</div>
+        <div className="bg-red-950/40 border border-red-500/40 p-3.5 rounded-xl col-span-2 sm:col-span-1">
+          <div className="text-[10px] text-red-400 uppercase font-bold">Remaining Life (RUL)</div>
+          <div className="text-base font-black text-red-200 mt-1">48 Operating Hrs</div>
+          <div className="text-[10px] text-red-300 font-semibold">Immediate Service</div>
         </div>
       </div>
 
-      {/* 3. Main Split View: Inference Chain & Diagnostics vs Telemetry Instrumentation */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* Left (7 Cols): Neural Inference Chain & Prescriptive Directives */}
-        <div className="xl:col-span-7 space-y-5">
-          {/* Section A: Multi-Stage Neural Reasoning Pipeline */}
-          <div className="bg-[#0F1626] border border-white/5 rounded-2xl p-6 shadow-lg space-y-4">
-            <div className="flex items-center justify-between border-b border-white/5 pb-3">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-                <Layers className="w-4 h-4 text-orange-500" />
-                Deterministic AI Reasoning Pipeline
+      {/* 3. Main Body */}
+      {activeTab === "telemetry" ? (
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          {/* Left Column (7 cols) */}
+          <div className="xl:col-span-7 space-y-5">
+            {/* 4-Stage Reasoning Pipeline */}
+            <div className="bg-[#0F1626] border border-white/5 rounded-2xl p-5 shadow-lg space-y-3 font-mono text-xs">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <span className="font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-orange-500" />
+                  Deterministic Reasoning Chain
+                </span>
+                <span className="text-emerald-400 text-[10px] bg-emerald-950/50 border border-emerald-500/30 px-2 py-0.5 rounded">
+                  Inference: 1.63ms
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                <div className="bg-[#131D30] border border-white/5 p-3 rounded-xl">
+                  <div className="text-[9px] text-slate-500 uppercase">Stage 01</div>
+                  <div className="text-xs font-bold text-white mt-1">Signal Extraction</div>
+                  <div className="text-[10px] text-cyan-400 mt-1 font-sans">100Hz Ingestion • 34.8 MPa</div>
+                </div>
+
+                <div className="bg-[#131D30] border border-white/5 p-3 rounded-xl">
+                  <div className="text-[9px] text-slate-500 uppercase">Stage 02</div>
+                  <div className="text-xs font-bold text-white mt-1">Lithology 1D-CNN</div>
+                  <div className="text-[10px] text-orange-400 mt-1 font-sans">Hard Basalt • 184 MPa</div>
+                </div>
+
+                <div className="bg-[#131D30] border border-red-500/30 p-3 rounded-xl bg-red-950/10">
+                  <div className="text-[9px] text-red-400 uppercase">Stage 03</div>
+                  <div className="text-xs font-bold text-red-200 mt-1">Autoencoder</div>
+                  <div className="text-[10px] text-red-400 mt-1 font-sans">MSE 115.3 • 142 Hz Peak</div>
+                </div>
+
+                <div className="bg-[#131D30] border border-red-500/30 p-3 rounded-xl bg-orange-950/10">
+                  <div className="text-[9px] text-orange-400 uppercase">Stage 04</div>
+                  <div className="text-xs font-bold text-orange-200 mt-1">CMSI Index</div>
+                  <div className="text-[10px] text-orange-400 mt-1 font-sans">Score 94 • Queue #1</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Root-Cause Mechanical Summary */}
+            <div className="bg-[#0F1626] border border-white/5 rounded-2xl p-5 shadow-lg space-y-3 font-sans">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2 font-mono text-xs">
+                <span className="font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-red-400" />
+                  Root-Cause Mechanical Analysis
+                </span>
+                <span className="text-[10px] text-red-400 font-bold bg-red-950/60 px-2 py-0.5 rounded border border-red-500/30 font-mono">
+                  CRITICAL FAULT
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-[#131D30] border border-white/5">
+                  <div className="text-red-400 font-bold text-[11px] uppercase font-mono">Overpressure Load</div>
+                  <div className="text-slate-200 mt-1 font-medium">184 MPa compressive stress</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Exceeds 144 MPa rating (+28%)</div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#131D30] border border-white/5">
+                  <div className="text-red-400 font-bold text-[11px] uppercase font-mono">Fluid Cavitation</div>
+                  <div className="text-slate-200 mt-1 font-medium">142 Hz acoustic resonance</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Micro-implosions in spool valve</div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-red-950/30 border border-red-500/30">
+                  <div className="text-red-300 font-bold text-[11px] uppercase font-mono">Rupture Risk</div>
+                  <div className="text-red-200 mt-1 font-medium">RUL &lt; 48 operating hours</div>
+                  <div className="text-[11px] text-red-300/80 mt-0.5">Spool seal failure imminent</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Prescriptive Engineering Directives */}
+            <div className="bg-[#0F1626] border border-white/5 rounded-2xl p-5 shadow-lg space-y-3 font-sans">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2 font-mono text-xs">
+                <span className="font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Wrench className="w-4 h-4 text-orange-400" />
+                  Prescriptive Operational Directives
+                </span>
+                <span className="text-[10px] text-slate-400">3 Immediate Actions</span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-[#131D30] border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <span className="w-5 h-5 rounded-md bg-orange-500/20 text-orange-400 font-mono font-bold text-[10px] flex items-center justify-center">
+                      1
+                    </span>
+                    <div>
+                      <div className="font-bold text-white">Limit Bucket Breakout Angle to ≤ 38°</div>
+                      <div className="text-[11px] text-slate-400">Prevents relief valve oil venting and temperature excursions</div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-emerald-400 font-semibold px-2 py-0.5 bg-emerald-950/50 rounded">Operator</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl bg-[#131D30] border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <span className="w-5 h-5 rounded-md bg-orange-500/20 text-orange-400 font-mono font-bold text-[10px] flex items-center justify-center">
+                      2
+                    </span>
+                    <div>
+                      <div className="font-bold text-white">Derate Relief Valve by -12% (350 ➔ 310 Bar)</div>
+                      <div className="text-[11px] text-slate-400">Reduces peak pressure oscillation during hard stratum penetration</div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-orange-400 font-semibold px-2 py-0.5 bg-orange-950/50 rounded">Maintenance</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl bg-[#131D30] border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <span className="w-5 h-5 rounded-md bg-orange-500/20 text-orange-400 font-mono font-bold text-[10px] flex items-center justify-center">
+                      3
+                    </span>
+                    <div>
+                      <div className="font-bold text-white">Reroute EX-04 to Sector 2 (Soft Shale Bench)</div>
+                      <div className="text-[11px] text-slate-400">Cuts wear rate by 65%; assign ripper dozer to basalt face</div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-cyan-400 font-semibold px-2 py-0.5 bg-cyan-950/50 rounded">Dispatch</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-wrap items-center gap-3 font-mono text-xs">
+                <button
+                  onClick={() => openWorkOrder("EX-04")}
+                  className="px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl transition shadow-md shadow-orange-950/40 cursor-pointer flex items-center gap-2"
+                >
+                  <Wrench className="w-4 h-4" />
+                  Dispatch Work Order #WO-8841
+                </button>
+
+                <button
+                  onClick={() => alert("Telemetry Report exported as PDF")}
+                  className="px-4 py-2.5 bg-[#131D30] hover:bg-white/10 text-slate-300 font-semibold rounded-xl transition border border-white/5 cursor-pointer flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4 text-slate-400" />
+                  Export Telemetry Report
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column (5 cols) */}
+          <div className="xl:col-span-5 space-y-5">
+            {/* Oscilloscope */}
+            <div className="bg-[#0F1626] border border-white/5 rounded-2xl p-5 shadow-lg font-mono text-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                <div>
+                  <div className="text-white font-bold text-sm flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-red-400" />
+                    Acoustic FFT Spectrum
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Transducer HYD-04B-ACC (Manifold)</div>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-red-950/70 border border-red-500/40 text-red-400 text-[10px] font-bold">
+                  Peak: 142 Hz
+                </span>
+              </div>
+
+              <div className="bg-[#080C14] border border-white/5 rounded-xl p-3 relative overflow-hidden">
+                <div className="absolute top-2 right-3 text-[10px] text-slate-500">
+                  BANDWIDTH: 0 - 200 Hz
+                </div>
+                
+                <svg viewBox="0 0 380 150" className="w-full h-40">
+                  <defs>
+                    <linearGradient id="specGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#EF4444" stopOpacity="0.4" />
+                      <stop offset="100%" stopColor="#EF4444" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Grid */}
+                  <line x1="0" y1="30" x2="380" y2="30" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
+                  <line x1="0" y1="70" x2="380" y2="70" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
+                  <line x1="0" y1="110" x2="380" y2="110" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
+                  <line x1="100" y1="0" x2="100" y2="150" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
+                  <line x1="200" y1="0" x2="200" y2="150" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
+                  <line x1="300" y1="0" x2="300" y2="150" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
+
+                  {/* Baseline */}
+                  <path
+                    d="M 10,130 Q 80,120 150,125 T 270,128 T 370,132"
+                    fill="none"
+                    stroke="#10B981"
+                    strokeWidth="1.5"
+                    strokeDasharray="4 4"
+                    opacity="0.4"
+                  />
+
+                  {/* Cavitation Spike */}
+                  <path
+                    d="M 10,135 Q 90,130 180,125 L 240,120 L 265,22 L 290,122 L 340,128 L 370,135"
+                    fill="url(#specGrad)"
+                  />
+                  <path
+                    d="M 10,135 Q 90,130 180,125 L 240,120 L 265,22 L 290,122 L 340,128 L 370,135"
+                    fill="none"
+                    stroke="#EF4444"
+                    strokeWidth="2.5"
+                  />
+
+                  <circle cx="265" cy="22" r="4" fill="#EF4444" />
+                  <circle cx="265" cy="22" r="8" fill="none" stroke="#EF4444" strokeWidth="1.5" className="animate-ping" />
+                  <text x="210" y="16" fill="#F87171" fontSize="10" fontWeight="bold" fontFamily="monospace">
+                    142 Hz (Cavitation Critical)
+                  </text>
+                </svg>
+
+                <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                  <span>0 Hz</span>
+                  <span>50 Hz</span>
+                  <span>100 Hz</span>
+                  <span className="text-red-400 font-bold">142 Hz</span>
+                  <span>200 Hz</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Sensor Stream */}
+            <div className="bg-[#0F1626] border border-white/5 rounded-2xl p-5 shadow-lg font-mono text-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <span className="font-bold text-white uppercase tracking-wider">
+                  Live Sensor Stream
+                </span>
+                <span className="text-emerald-400 text-[10px] font-bold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  100 Hz Ingestion
+                </span>
+              </div>
+
+              {/* Hydraulic Pressure */}
+              <div className="p-3 rounded-xl bg-[#131D30] border border-white/5">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-slate-400 text-[11px]">HYDRAULIC PRESSURE</span>
+                  <span className="text-base font-black text-red-400">
+                    {ex04?.hydraulic_pressure_mpa ?? 34.8} MPa
+                  </span>
+                </div>
+                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden my-2">
+                  <div 
+                    className="bg-gradient-to-r from-orange-500 to-red-600 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, ((ex04?.hydraulic_pressure_mpa ?? 34.8) / 37.0) * 100)}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-500">
+                  <span>Nominal: 28.0 MPa</span>
+                  <span className="text-red-400 font-bold">94% of Relief Limit</span>
+                </div>
+              </div>
+
+              {/* Oil Temp */}
+              <div className="p-3 rounded-xl bg-[#131D30] border border-white/5">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-slate-400 text-[11px]">MANIFOLD OIL TEMP</span>
+                  <span className="text-base font-black text-amber-400">
+                    {ex04?.manifold_temp_c ?? 96.4} °C
+                  </span>
+                </div>
+                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden my-2">
+                  <div 
+                    className="bg-gradient-to-r from-amber-500 to-red-500 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, ((ex04?.manifold_temp_c ?? 96.4) / 110.0) * 100)}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-500">
+                  <span>Safe Limit: 85.0 °C</span>
+                  <span className="text-amber-400 font-bold">Thermal High</span>
+                </div>
+              </div>
+
+              {/* Kinematics */}
+              <div className="p-3 rounded-xl bg-[#131D30] border border-white/5">
+                <div className="text-[10px] text-slate-400 uppercase font-bold mb-2">IMU Kinematics Readout</div>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                    <div className="text-[10px] text-slate-500">Boom</div>
+                    <div className="font-bold text-white text-xs mt-0.5">{ex04?.kinematics.boom_angle ?? 34.8}°</div>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                    <div className="text-[10px] text-slate-500">Arm</div>
+                    <div className="font-bold text-white text-xs mt-0.5">{ex04?.kinematics.arm_reach ?? 9.2}m</div>
+                  </div>
+                  <div className="bg-red-950/40 p-2 rounded-lg border border-red-500/30">
+                    <div className="text-[10px] text-red-400 font-bold">Bucket</div>
+                    <div className="font-bold text-red-300 text-xs mt-0.5">{ex04?.kinematics.bucket_angle ?? 91.4}°</div>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                    <div className="text-[10px] text-slate-500">Slew</div>
+                    <div className="font-bold text-amber-400 text-xs mt-0.5">{ex04?.kinematics.slew_speed ?? 8.2} rpm</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Tab 2: Anomaly Event Feed */
+        <div className="bg-[#0F1626] border border-white/5 rounded-2xl shadow-xl overflow-hidden font-mono text-xs">
+          <div className="p-5 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-black text-white font-sans">
+                Fleet Anomaly Event Feed
               </h2>
-              <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-2 py-0.5 rounded">
-                Inferensi Latency: 1.63 ms (Passed)
-              </span>
-            </div>
-
-            {/* 4 Pipeline Step Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
-              {/* Step 1 */}
-              <div className="bg-[#131D30] border border-white/5 p-4 rounded-xl relative">
-                <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                  <span>STAGE 01</span>
-                  <span className="text-cyan-400">100 Hz Ingestion</span>
-                </div>
-                <div className="font-bold text-white text-sm">Sensor Signal Extraction</div>
-                <p className="text-[11px] text-slate-400 font-sans mt-1.5 leading-relaxed">
-                  Pressure transducer membaca lonjakan katup 35.2 MPa pada frekuensi 100 Hz, disinkronkan dengan getaran sasis 4.2 m/s² dari IMU.
-                </p>
-              </div>
-
-              {/* Step 2 */}
-              <div className="bg-[#131D30] border border-white/5 p-4 rounded-xl relative">
-                <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                  <span>STAGE 02</span>
-                  <span className="text-orange-400">1D-CNN + Bi-LSTM</span>
-                </div>
-                <div className="font-bold text-white text-sm">Lithological Strata Model</div>
-                <p className="text-[11px] text-slate-400 font-sans mt-1.5 leading-relaxed">
-                  Model mendeteksi pola penetrasi batuan keras (Hard Basalt, W_strata = 4.0) dengan akurasi 100% dan resistansi 184 MPa.
-                </p>
-              </div>
-
-              {/* Step 3 */}
-              <div className="bg-[#131D30] border border-red-500/30 p-4 rounded-xl relative bg-gradient-to-br from-red-950/20 to-transparent">
-                <div className="flex items-center justify-between text-[10px] text-red-400 mb-1">
-                  <span>STAGE 03</span>
-                  <span className="text-red-400 font-bold">Unsupervised Autoencoder</span>
-                </div>
-                <div className="font-bold text-red-200 text-sm">Hydraulic Anomaly Detection</div>
-                <p className="text-[11px] text-slate-300 font-sans mt-1.5 leading-relaxed">
-                  Reconstruction error melonjak drastis (MSE 115.33 vs ambang τ 0.0014). Sinyal anomali kavitasi fluida pompa #2 terkonfirmasi.
-                </p>
-              </div>
-
-              {/* Step 4 */}
-              <div className="bg-[#131D30] border border-red-500/40 p-4 rounded-xl relative bg-gradient-to-br from-orange-950/20 to-transparent">
-                <div className="flex items-center justify-between text-[10px] text-orange-400 mb-1">
-                  <span>STAGE 04</span>
-                  <span className="text-orange-400 font-bold">Contextual Stress Index</span>
-                </div>
-                <div className="font-bold text-orange-200 text-sm">CMSI Score: 94 / 100</div>
-                <p className="text-[11px] text-slate-300 font-sans mt-1.5 leading-relaxed">
-                  Stres nyata mesin melompat ke ranking #1 antrean servis tambang. Tingkat kerusakan akumulatif 3.4x lebih cepat dibanding estimasi OEM.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Section B: Root-Cause Mechanical Explanation */}
-          <div className="bg-[#0F1626] border border-white/5 rounded-2xl p-6 shadow-lg space-y-3 font-sans">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-red-500" />
-              Root-Cause Mechanical Analysis
-            </h3>
-            <div className="p-4 rounded-xl bg-red-950/30 border border-red-500/20 text-xs text-red-200 leading-relaxed">
-              <p className="font-medium">
-                Unit <strong>EX-04</strong> saat ini beroperasi di lapisan batuan basalt keras (Sector 4 North Bench, elevasi -140m). Tekanan kompresi batuan riil sebesar <strong>184 MPa</strong> (28% melampaui batas desain spesifikasi 144 MPa). 
-              </p>
-              <p className="mt-2 text-slate-300">
-                Benturan berulang memicu lonjakan gaya breakout galian yang menyebabkan gelembung uap hidrolik pecah (kavitasi kavitasi frekuensi 142 Hz) pada katup distributor pompa utama. Jika dibiarkan beroperasi tanpa penyesuaian sudut gali dan derating katup relief, seal hidrolik diproyeksikan pecah dalam waktu kurang dari <strong>48 jam operasional</strong>.
-              </p>
-            </div>
-          </div>
-
-          {/* Section C: Prescriptive Operational Directives */}
-          <div className="bg-[#0F1626] border border-white/5 rounded-2xl p-6 shadow-lg space-y-4 font-sans">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-              <Wrench className="w-4 h-4 text-orange-500" />
-              Prescriptive Engineering Directives (Operational Action)
-            </h3>
-
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#131D30] border border-white/5">
-                <span className="w-6 h-6 rounded-lg bg-orange-500/20 border border-orange-500/40 text-orange-400 font-bold font-mono flex items-center justify-center shrink-0 text-xs">
-                  01
-                </span>
-                <div>
-                  <div className="font-bold text-white">Batasi Sudut Breakout Bucket ke ≤ 38°</div>
-                  <div className="text-slate-400 text-[11px] mt-0.5">
-                    Mencegah katup relief melepaskan oli bertekanan ekstrem yang memicu kavitasi dan pemanasan oli di atas 90°C.
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#131D30] border border-white/5">
-                <span className="w-6 h-6 rounded-lg bg-orange-500/20 border border-orange-500/40 text-orange-400 font-bold font-mono flex items-center justify-center shrink-0 text-xs">
-                  02
-                </span>
-                <div>
-                  <div className="font-bold text-white">Derating Tekanan Katup Relief Utama sebesar -12%</div>
-                  <div className="text-slate-400 text-[11px] mt-0.5">
-                    Instruksikan tim mekanik untuk menurunkan ambang batas relief valve dari 350 bar ke 310 bar pada shift pergantian malam.
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#131D30] border border-white/5">
-                <span className="w-6 h-6 rounded-lg bg-orange-500/20 border border-orange-500/40 text-orange-400 font-bold font-mono flex items-center justify-center shrink-0 text-xs">
-                  03
-                </span>
-                <div>
-                  <div className="font-bold text-white">Rerouting Armada: Geser EX-04 ke Bench Batupasir Lunak</div>
-                  <div className="text-slate-400 text-[11px] mt-0.5">
-                    Pindahkan unit EX-04 ke Sector 2 Soft Shale Bench (kekerasan 74 MPa) untuk mereduksi laju keausan sebesar 65%. Tugaskan dozer ripper terlebih dahulu untuk memecah basalt.
-                  </div>
-                </div>
+              <div className="text-xs text-slate-400 font-sans mt-0.5">
+                Real-time chronological sensor triggers & diagnostic incidents
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="pt-2 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-xl border border-white/5">
               <button
-                onClick={handleDispatch}
-                className="px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-orange-950/40 cursor-pointer flex items-center gap-2"
+                onClick={() => setEventFilter("all")}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  eventFilter === "all" ? "bg-white/10 text-white font-bold" : "text-slate-400 hover:text-slate-200"
+                }`}
               >
-                <Wrench className="w-4 h-4" />
-                Dispatch Work Order #WO-8841
+                All (6)
               </button>
-
-              <button className="px-4 py-2.5 bg-[#131D30] hover:bg-white/10 text-slate-300 font-semibold rounded-xl text-xs transition border border-white/5 cursor-pointer flex items-center gap-2">
-                <FileText className="w-4 h-4 text-slate-400" />
-                Export Telemetry Report (PDF)
+              <button
+                onClick={() => setEventFilter("critical")}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  eventFilter === "critical" ? "bg-red-950/60 text-red-300 font-bold border border-red-500/40" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Critical (1)
+              </button>
+              <button
+                onClick={() => setEventFilter("high")}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  eventFilter === "high" ? "bg-amber-950/60 text-amber-300 font-bold border border-amber-500/40" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Elevated (3)
+              </button>
+              <button
+                onClick={() => setEventFilter("resolved")}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  eventFilter === "resolved" ? "bg-emerald-950/60 text-emerald-300 font-bold border border-emerald-500/40" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Resolved (2)
               </button>
             </div>
+          </div>
 
-            {dispatchStatus && (
-              <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-mono flex items-center gap-2 animate-fadeIn">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                {dispatchStatus}
-              </div>
-            )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-slate-300">
+              <thead className="bg-black/30 text-[10px] text-slate-400 uppercase tracking-wider border-b border-white/5">
+                <tr>
+                  <th className="py-3.5 px-6">Timestamp</th>
+                  <th className="py-3.5 px-6">Machine</th>
+                  <th className="py-3.5 px-6">Component</th>
+                  <th className="py-3.5 px-6">Trigger Telemetry</th>
+                  <th className="py-3.5 px-6">Severity</th>
+                  <th className="py-3.5 px-6 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {filteredLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-white/[0.02] transition">
+                    <td className="py-4 px-6 text-slate-400 flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{log.time}</span>
+                    </td>
+
+                    <td className="py-4 px-6 font-bold text-white">
+                      {log.unit}
+                    </td>
+
+                    <td className="py-4 px-6 font-sans text-slate-300 font-medium">
+                      {log.subsystem}
+                    </td>
+
+                    <td className="py-4 px-6 font-mono text-[11px] text-slate-400">
+                      {log.description}
+                    </td>
+
+                    <td className="py-4 px-6">
+                      {log.severity === "critical" && (
+                        <span className="px-2 py-0.5 rounded bg-red-950/60 border border-red-500/40 text-red-400 text-[10px] font-bold">
+                          CRITICAL
+                        </span>
+                      )}
+                      {log.severity === "high" && (
+                        <span className="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/40 text-amber-400 text-[10px] font-bold">
+                          ELEVATED
+                        </span>
+                      )}
+                      {log.severity === "resolved" && (
+                        <span className="px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold">
+                          RESOLVED
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-4 px-6 text-right font-sans">
+                      {log.severity === "critical" ? (
+                        <button
+                          onClick={() => openWorkOrder(log.unit)}
+                          className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition shadow-md shadow-orange-950/40 cursor-pointer inline-flex items-center gap-1.5 text-xs"
+                        >
+                          <Wrench className="w-3.5 h-3.5" />
+                          Work Order
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => openWorkOrder(log.unit)}
+                          className="px-3.5 py-1.5 bg-[#131D30] hover:bg-white/10 text-slate-300 font-semibold rounded-lg border border-white/5 transition cursor-pointer inline-flex items-center gap-1.5 text-xs"
+                        >
+                          Details
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
+      )}
 
-        {/* Right (5 Cols): Live Waveform Oscilloscope & Multi-Sensor Instrumentation */}
-        <div className="xl:col-span-5 space-y-5">
-          {/* Waveform Card: Acoustic FFT Cavitation Spectrum */}
-          <div className="bg-[#0F1626] border border-white/5 rounded-2xl p-5 shadow-lg font-mono text-xs space-y-3">
-            <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
-              <div>
-                <div className="text-white font-bold text-sm flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-red-400" />
-                  Acoustic FFT Spectrum (Live Sensor)
-                </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">Transducer HYD-04B-ACC (Fluid Manifold)</div>
-              </div>
-              <span className="px-2 py-0.5 rounded bg-red-950/70 border border-red-500/40 text-red-400 text-[10px] font-bold">
-                Peak: 142 Hz
-              </span>
-            </div>
-
-            {/* Glowing SVG Oscilloscope */}
-            <div className="bg-[#080C14] border border-white/5 rounded-xl p-3 relative overflow-hidden">
-              <div className="absolute top-2 right-3 text-[10px] text-slate-500">
-                BANDWIDTH: 0 - 200 Hz
-              </div>
-              
-              <svg viewBox="0 0 380 150" className="w-full h-40">
-                <defs>
-                  <linearGradient id="spectrumGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#EF4444" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#EF4444" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-
-                {/* Background Grid */}
-                <line x1="0" y1="30" x2="380" y2="30" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
-                <line x1="0" y1="70" x2="380" y2="70" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
-                <line x1="0" y1="110" x2="380" y2="110" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
-                <line x1="100" y1="0" x2="100" y2="150" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
-                <line x1="200" y1="0" x2="200" y2="150" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
-                <line x1="300" y1="0" x2="300" y2="150" stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
-
-                {/* Normal Baseline Wave (Green subtle dashed) */}
-                <path
-                  d="M 10,130 Q 80,120 150,125 T 270,128 T 370,132"
-                  fill="none"
-                  stroke="#10B981"
-                  strokeWidth="1.5"
-                  strokeDasharray="4 4"
-                  opacity="0.4"
-                />
-
-                {/* Cavitation Spike Curve with Glow Area */}
-                <path
-                  d="M 10,135 Q 90,130 180,125 L 240,120 L 265,22 L 290,122 L 340,128 L 370,135"
-                  fill="url(#spectrumGradient)"
-                />
-                <path
-                  d="M 10,135 Q 90,130 180,125 L 240,120 L 265,22 L 290,122 L 340,128 L 370,135"
-                  fill="none"
-                  stroke="#EF4444"
-                  strokeWidth="2.5"
-                />
-
-                {/* Harmonic Marker Tag */}
-                <circle cx="265" cy="22" r="4" fill="#EF4444" />
-                <circle cx="265" cy="22" r="8" fill="none" stroke="#EF4444" strokeWidth="1.5" className="animate-ping" />
-                <text x="220" y="16" fill="#F87171" fontSize="10" fontWeight="bold" fontFamily="monospace">
-                  142 Hz (Cavitation Critical)
-                </text>
-              </svg>
-
-              <div className="flex justify-between text-[10px] text-slate-500 mt-1">
-                <span>0 Hz</span>
-                <span>50 Hz</span>
-                <span>100 Hz</span>
-                <span className="text-red-400 font-bold">142 Hz</span>
-                <span>200 Hz</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Real-Time Sensor Telemetry Gauges */}
-          <div className="bg-[#0F1626] border border-white/5 rounded-2xl p-5 shadow-lg font-mono text-xs space-y-3.5">
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
-              <span className="font-bold text-white uppercase tracking-wider text-xs">
-                EX-04 Telemetry Instrumentation
-              </span>
-              <span className="text-emerald-400 text-[10px] font-bold flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                STREAM 100Hz
-              </span>
-            </div>
-
-            {/* Pressure Gauge */}
-            <div className="p-3.5 rounded-xl bg-[#131D30] border border-white/5">
-              <div className="flex justify-between items-baseline text-xs">
-                <span className="text-slate-400 text-[11px]">HYDRAULIC RELIEF PRESSURE</span>
-                <span className="text-base font-black text-red-400">
-                  {ex04?.hydraulic_pressure_mpa ?? 34.8} MPa
-                </span>
-              </div>
-              <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden my-2">
-                <div 
-                  className="bg-gradient-to-r from-orange-500 to-red-600 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${Math.min(100, ((ex04?.hydraulic_pressure_mpa ?? 34.8) / 37.0) * 100)}%` }}
-                ></div>
-              </div>
-              <div className="flex justify-between text-[10px] text-slate-500">
-                <span>Nominal: 28.0 MPa</span>
-                <span className="text-red-400 font-bold">94% of Relief Limit</span>
-              </div>
-            </div>
-
-            {/* Temperature Gauge */}
-            <div className="p-3.5 rounded-xl bg-[#131D30] border border-white/5">
-              <div className="flex justify-between items-baseline text-xs">
-                <span className="text-slate-400 text-[11px]">MANIFOLD FLUID OIL TEMP</span>
-                <span className="text-base font-black text-amber-400">
-                  {ex04?.manifold_temp_c ?? 96.4} °C
-                </span>
-              </div>
-              <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden my-2">
-                <div 
-                  className="bg-gradient-to-r from-amber-500 to-red-500 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${Math.min(100, ((ex04?.manifold_temp_c ?? 96.4) / 110.0) * 100)}%` }}
-                ></div>
-              </div>
-              <div className="flex justify-between text-[10px] text-slate-500">
-                <span>Max Safe: 85.0 °C</span>
-                <span className="text-amber-400 font-bold">Thermal Envelope High</span>
-              </div>
-            </div>
-
-            {/* Kinematics Grid */}
-            <div className="p-3.5 rounded-xl bg-[#131D30] border border-white/5">
-              <div className="text-[10px] text-slate-400 uppercase font-bold mb-2">Kinematics Joint Tolerances (IMU)</div>
-              <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                <div className="bg-black/30 p-2 rounded-lg border border-white/5">
-                  <div className="text-[10px] text-slate-500">Boom</div>
-                  <div className="font-bold text-white text-sm mt-0.5">{ex04?.kinematics.boom_angle ?? 34.8}°</div>
-                </div>
-                <div className="bg-black/30 p-2 rounded-lg border border-white/5">
-                  <div className="text-[10px] text-slate-500">Arm</div>
-                  <div className="font-bold text-white text-sm mt-0.5">{ex04?.kinematics.arm_reach ?? 9.2}m</div>
-                </div>
-                <div className="bg-red-950/40 p-2 rounded-lg border border-red-500/30">
-                  <div className="text-[10px] text-red-400 font-bold">Bucket</div>
-                  <div className="font-bold text-red-300 text-sm mt-0.5">{ex04?.kinematics.bucket_angle ?? 91.4}°</div>
-                </div>
-                <div className="bg-black/30 p-2 rounded-lg border border-white/5">
-                  <div className="text-[10px] text-slate-500">Slew</div>
-                  <div className="font-bold text-amber-400 text-sm mt-0.5">{ex04?.kinematics.slew_speed ?? 8.2} rpm</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Work Order Modal */}
+      <WorkOrderModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        unitId={modalUnit}
+      />
     </div>
   );
 }
