@@ -180,7 +180,7 @@ export default function SiteConfigPage() {
       {/* 4. Sector Filter Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
         <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg">
-          <button className="px-3 py-1.5 bg-slate-900 text-white font-bold rounded shadow-xs">All Sectors (8)</button>
+          <button className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded shadow-xs">All Sectors (8)</button>
           <button className="px-3 py-1.5 text-slate-700 hover:text-slate-900">Pilbara Iron (3)</button>
           <button className="px-3 py-1.5 text-slate-700 hover:text-slate-900">Newman Ridge (3)</button>
           <button className="px-3 py-1.5 text-slate-700 hover:text-slate-900">Goldfields Basin (2)</button>
