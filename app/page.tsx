@@ -2,12 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { 
-  AlertTriangle, 
-  Clock, 
-  HardHat, 
-  HeartPulse, 
-  ShieldAlert, 
+import {
+  AlertTriangle,
+  Clock,
+  HardHat,
+  HeartPulse,
+  ShieldAlert,
   Wrench,
   Activity,
   ArrowRight
@@ -25,19 +25,88 @@ export default function Dashboard() {
     setModalOpen(true);
   };
 
-  const queueData = [
+  const ex04 = telemetry?.units["EX-04"];
+  const ex04Cmsi = ex04?.cmsi ?? 94.0;
+  const ex04Pressure = ex04?.hydraulic_pressure_mpa ?? 34.8;
+  const isEx04Critical = ex04Cmsi >= 90;
+
+  const rawQueue = [
     {
-      rank: "#01",
-      dotColor: "bg-red-500",
       id: "EX-04",
+      isLiveSimulation: true,
       model: "CAT 6040 FS",
       operator: "M. Kowalski",
-      cmsi: 94.0,
-      primaryAnomaly: "Hydraulic Cavitation Anomaly",
-      anomalyDetail: "Pump #2 differential spike (+34 bar)",
+      cmsi: ex04Cmsi,
+      primaryAnomaly: isEx04Critical ? "Hydraulic Cavitation Anomaly" : "Normal Operation Envelope",
+      anomalyDetail: isEx04Critical ? `Relief pressure spike (${ex04Pressure} MPa)` : `Nominal line pressure (${ex04Pressure} MPa)`,
       hours: "4,210",
-      isCritical: true,
+      isCritical: isEx04Critical,
+      dotColor: isEx04Critical ? "bg-red-500" : ex04Cmsi >= 70 ? "bg-amber-500" : "bg-emerald-500",
     },
+    {
+      id: "EX-12",
+      model: "Komatsu PC8000-11",
+      operator: "R. Chen",
+      cmsi: 83.1,
+      primaryAnomaly: "Slew Bearing Harmonic Spike",
+      anomalyDetail: "Vibration peak 4.2 kHz harmonic",
+      hours: "6,840",
+      isCritical: false,
+      dotColor: "bg-amber-500",
+    },
+    {
+      id: "EX-27",
+      model: "Hitachi EX5600-7",
+      operator: "J. Botha",
+      cmsi: 79.4,
+      primaryAnomaly: "Cylinder Seal Bypass",
+      anomalyDetail: "Flow bypass on boom descent",
+      hours: "5,110",
+      isCritical: false,
+      dotColor: "bg-amber-500",
+    },
+    {
+      id: "EX-08",
+      model: "CAT 6060",
+      operator: "S. Tanaka",
+      cmsi: 58.2,
+      primaryAnomaly: "Hydraulic Thermal Drift",
+      anomalyDetail: "Exchanger efficiency down 8%",
+      hours: "8,920",
+      isCritical: false,
+      dotColor: "bg-emerald-500",
+    },
+    {
+      id: "EX-19",
+      model: "Liebherr R9800",
+      operator: "D. Vance",
+      cmsi: 44.0,
+      primaryAnomaly: "Nominal Wear Envelope",
+      anomalyDetail: "Baseline operational wear",
+      hours: "2,350",
+      isCritical: false,
+      dotColor: "bg-emerald-500",
+    },
+    {
+      id: "EX-31",
+      model: "Komatsu PC4000-11",
+      operator: "K. Mensah",
+      cmsi: 38.6,
+      primaryAnomaly: "Nominal Wear Envelope",
+      anomalyDetail: "Baseline operational wear",
+      hours: "1,140",
+      isCritical: false,
+      dotColor: "bg-emerald-500",
+    },
+  ];
+
+  // Auto-sort queue by CMSI descending so highest stress machine always jumps to Rank #1
+  const queueData = [...rawQueue].sort((a, b) => b.cmsi - a.cmsi).map((item, idx) => ({
+    ...item,
+    rank: `#0${idx + 1}`
+  }));
+
+  const dummyQueueUnused = [
     {
       rank: "#02",
       dotColor: "bg-amber-500",
@@ -108,7 +177,7 @@ export default function Dashboard() {
           <div className="text-[10px] font-mono font-bold text-orange-400 uppercase tracking-widest">
             SECTOR 4 NORTHERN PIT
           </div>
-          <h1 className="text-xl font-black text-white tracking-tight mt-0.5">
+          <h1 className="text-xl font-black text-black tracking-tight mt-0.5">
             Operations Overview & Priority Queue
           </h1>
           <div className="text-xs text-slate-400 font-mono mt-1">
@@ -116,7 +185,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-     
+
       </div>
 
       {/* 2. 4 Clean HUD Metric Cards */}
@@ -199,23 +268,28 @@ export default function Dashboard() {
 
                   {/* Machine */}
                   <td className="py-4 px-6">
-                    <div className="font-bold text-slate-900 font-sans text-sm">{row.id}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 font-sans text-sm">{row.id}</span>
+                      {row.id === "EX-04" && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 border border-orange-200">
+                          LIVE SENSOR
+                        </span>
+                      )}
+                    </div>
                     <div className="text-slate-500 text-[11px]">{row.model} • {row.operator}</div>
                   </td>
 
                   {/* CMSI */}
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-2.5">
-                      <span className={`font-black text-sm w-10 ${
-                        row.cmsi >= 90 ? "text-red-400" : row.cmsi >= 75 ? "text-amber-400" : "text-emerald-400"
-                      }`}>
+                      <span className={`font-black text-sm w-10 ${row.cmsi >= 90 ? "text-red-400" : row.cmsi >= 75 ? "text-amber-400" : "text-emerald-400"
+                        }`}>
                         {row.cmsi}
                       </span>
                       <div className="w-20 bg-slate-200 h-1.5 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${
-                            row.cmsi >= 90 ? "bg-red-500" : row.cmsi >= 75 ? "bg-amber-500" : "bg-emerald-500"
-                          }`}
+                          className={`h-full rounded-full ${row.cmsi >= 90 ? "bg-red-500" : row.cmsi >= 75 ? "bg-amber-500" : "bg-emerald-500"
+                            }`}
                           style={{ width: `${row.cmsi}%` }}
                         ></div>
                       </div>
@@ -260,10 +334,10 @@ export default function Dashboard() {
       </div>
 
       {/* Work Order Modal */}
-      <WorkOrderModal 
-        isOpen={modalOpen} 
-        onClose={() => setModalOpen(false)} 
-        unitId={targetUnit} 
+      <WorkOrderModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        unitId={targetUnit}
       />
     </div>
   );

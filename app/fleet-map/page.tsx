@@ -24,8 +24,11 @@ export default function FleetMapPage() {
   const { telemetry, isStreaming } = useTelemetry();
   const ex04 = telemetry?.units["EX-04"];
 
+  const ex04Cmsi = ex04?.cmsi ?? 94.0;
+  const ex04Status = ex04Cmsi >= 90 ? "critical" : ex04Cmsi >= 70 ? "warning" : "nominal";
+
   const units = [
-    { id: "EX-04", x: 440, y: 390, status: "critical", cmsi: 94.0, model: "CAT 6040 FS" },
+    { id: "EX-04", x: 440, y: 390, status: ex04Status, cmsi: ex04Cmsi, model: "CAT 6040 FS (LIVE SENSOR)" },
     { id: "EX-12", x: 500, y: 340, status: "warning", cmsi: 83.1, model: "Komatsu PC8000" },
     { id: "EX-08", x: 530, y: 280, status: "nominal", cmsi: 58.2, model: "CAT 6060" },
     { id: "EX-31", x: 370, y: 330, status: "nominal", cmsi: 38.6, model: "PC4000" },
@@ -60,13 +63,13 @@ export default function FleetMapPage() {
             <span className="font-bold text-orange-600">Hard Basalt (184 MPa)</span>
           </div>
 
-          <Link
+          {/* <Link
             href="/diagnostics"
             className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-orange-950/40 flex items-center gap-2"
           >
             <Activity className="w-3.5 h-3.5" />
             Neural Diagnostics
-          </Link>
+          </Link> */}
         </div>
       </div>
 
