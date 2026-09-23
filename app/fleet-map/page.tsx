@@ -6,34 +6,122 @@ import {
   ShieldAlert, 
   MapPin, 
   Layers, 
-  Maximize2, 
-  Compass, 
   Activity, 
   AlertTriangle, 
   HardHat, 
   Wrench,
   Radio,
-  RotateCcw,
-  Zap,
-  ArrowRight
+  ArrowRight,
+  Flame,
+  Eye,
+  CheckCircle2
 } from "lucide-react";
 import { useTelemetry } from "@/context/TelemetryContext";
 
 export default function FleetMapPage() {
   const [selectedUnit, setSelectedUnit] = useState("EX-04");
+  
+  // Layer toggles
+  const [layerEdge, setLayerEdge] = useState(true);
+  const [layerThermal, setLayerThermal] = useState(false);
+  const [layerCavitation, setLayerCavitation] = useState(true);
+  const [layerContours, setLayerContours] = useState(true);
+
   const { telemetry, isStreaming } = useTelemetry();
   const ex04 = telemetry?.units["EX-04"];
 
   const ex04Cmsi = ex04?.cmsi ?? 94.0;
   const ex04Status = ex04Cmsi >= 90 ? "critical" : ex04Cmsi >= 70 ? "warning" : "nominal";
 
-  const units = [
-    { id: "EX-04", x: 440, y: 390, status: ex04Status, cmsi: ex04Cmsi, model: "CAT 6040 FS (LIVE SENSOR)" },
-    { id: "EX-12", x: 500, y: 340, status: "warning", cmsi: 83.1, model: "Komatsu PC8000" },
-    { id: "EX-08", x: 530, y: 280, status: "nominal", cmsi: 58.2, model: "CAT 6060" },
-    { id: "EX-31", x: 370, y: 330, status: "nominal", cmsi: 38.6, model: "PC4000" },
-    { id: "EX-19", x: 620, y: 440, status: "nominal", cmsi: 44.0, model: "Liebherr 9800" },
+  const unitsData = [
+    { 
+      id: "EX-04", 
+      x: 440, 
+      y: 390, 
+      status: ex04Status, 
+      cmsi: ex04Cmsi, 
+      model: "Caterpillar 6040 FS", 
+      sn: "TC-8829-PX",
+      badge: ex04Status === "critical" ? "Critical Anomaly" : ex04Status === "warning" ? "Elevated Load" : "Nominal State",
+      title: ex04Status === "critical" ? "Hydraulic Cavitation Detected" : ex04Status === "warning" ? "Elevated Hydraulic Load" : "Normal Hydraulic State",
+      detail: ex04?.anomaly_detail || "Telemetry synced via live MQTT loop.", 
+      boom: ex04?.kinematics.boom_angle ?? 34.8,
+      arm: ex04?.kinematics.arm_reach ?? 9.2,
+      pressure: ex04?.hydraulic_pressure_mpa ?? 34.8,
+      temp: ex04?.manifold_temp_c ?? 96.4,
+      isLive: true
+    },
+    { 
+      id: "EX-12", 
+      x: 500, 
+      y: 340, 
+      status: "warning", 
+      cmsi: 83.1, 
+      model: "Komatsu PC8000-11", 
+      sn: "KM-7104-AZ",
+      badge: "High Slew Shock",
+      title: "Slew Bearing Harmonic Spike",
+      detail: "88 Hz radial vibration on swing gear. High centrifugal torque on bench.",
+      boom: 41.2,
+      arm: 8.5,
+      pressure: 29.4,
+      temp: 78.5,
+      isLive: false
+    },
+    { 
+      id: "EX-08", 
+      x: 530, 
+      y: 280, 
+      status: "nominal", 
+      cmsi: 58.2, 
+      model: "Caterpillar 6060", 
+      sn: "TC-5512-KL",
+      badge: "Thermal Watch",
+      title: "Hydraulic Thermal Drift",
+      detail: "Minor temperature rise in secondary cooler. Within safe operating limits.",
+      boom: 28.5,
+      arm: 9.8,
+      pressure: 24.1,
+      temp: 74.2,
+      isLive: false
+    },
+    { 
+      id: "EX-31", 
+      x: 370, 
+      y: 330, 
+      status: "nominal", 
+      cmsi: 38.6, 
+      model: "Komatsu PC4000-6", 
+      sn: "KM-4902-TX",
+      badge: "Nominal State",
+      title: "Nominal Operations",
+      detail: "Standard cycle time. No harmonic spikes or hydraulic anomalies detected.",
+      boom: 32.1,
+      arm: 7.8,
+      pressure: 21.0,
+      temp: 65.4,
+      isLive: false
+    },
+    { 
+      id: "EX-19", 
+      x: 620, 
+      y: 440, 
+      status: "nominal", 
+      cmsi: 44.0, 
+      model: "Liebherr R 9800", 
+      sn: "LB-9210-WD",
+      badge: "Nominal State",
+      title: "Standard Digging Envelope",
+      detail: "Digging in soft sandstone bench. Low wear velocity, all sensors healthy.",
+      boom: 36.4,
+      arm: 8.9,
+      pressure: 22.8,
+      temp: 68.1,
+      isLive: false
+    },
   ];
+
+  const currentUnit = unitsData.find(u => u.id === selectedUnit) || unitsData[0];
 
   return (
     <div className="space-y-6 max-w-[1560px] mx-auto font-sans pb-12">
@@ -62,31 +150,59 @@ export default function FleetMapPage() {
             <span className="text-slate-500 text-[10px] block uppercase">ROCK FORMATION</span>
             <span className="font-bold text-orange-600">Hard Basalt (184 MPa)</span>
           </div>
-
-          {/* <Link
-            href="/diagnostics"
-            className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-orange-950/40 flex items-center gap-2"
-          >
-            <Activity className="w-3.5 h-3.5" />
-            Neural Diagnostics
-          </Link> */}
         </div>
       </div>
 
-      {/* 2. Map Filter Layers Bar */}
+      {/* 2. Map Filter Layers Bar (INTERACTIVE TOGGLES) */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mr-1">LAYERS:</span>
-          <button className="px-3 py-1 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 font-bold">
-            ● Edge Nodes Synced
+          
+          <button 
+            onClick={() => setLayerEdge(!layerEdge)}
+            className={`px-3 py-1.5 rounded-lg border font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              layerEdge 
+                ? "bg-orange-50 border-orange-300 text-orange-700 shadow-xs" 
+                : "bg-white border-slate-200 text-slate-400 hover:text-slate-700"
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${layerEdge ? "bg-orange-500 animate-pulse" : "bg-slate-300"}`}></span>
+            Edge Nodes Synced
           </button>
-          <button className="px-3 py-1 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-slate-800">
-            Thermal Stress Map
+
+          <button 
+            onClick={() => setLayerThermal(!layerThermal)}
+            className={`px-3 py-1.5 rounded-lg border font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              layerThermal 
+                ? "bg-amber-100 border-amber-300 text-amber-900 shadow-xs" 
+                : "bg-white border-slate-200 text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5 text-amber-600" />
+            Thermal Stress Map {layerThermal && "(Active)"}
           </button>
-          <button className="px-3 py-1 rounded-lg bg-red-50 border border-red-200 text-red-700 font-bold">
+
+          <button 
+            onClick={() => setLayerCavitation(!layerCavitation)}
+            className={`px-3 py-1.5 rounded-lg border font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              layerCavitation 
+                ? "bg-red-50 border-red-300 text-red-700 shadow-xs" 
+                : "bg-white border-slate-200 text-slate-400 hover:text-slate-700"
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
             Cavitation Alerts (1)
           </button>
-          <button className="px-3 py-1 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-slate-800">
+
+          <button 
+            onClick={() => setLayerContours(!layerContours)}
+            className={`px-3 py-1.5 rounded-lg border font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              layerContours 
+                ? "bg-slate-100 border-slate-300 text-slate-800 shadow-xs" 
+                : "bg-white border-slate-200 text-slate-400 hover:text-slate-700"
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-slate-600" />
             Elevation Contours
           </button>
         </div>
@@ -108,22 +224,25 @@ export default function FleetMapPage() {
         </div>
       </div>
 
-      {/* 3. Main Split View: Dark Interactive SVG Pit Map vs Selected Machine Inspector */}
+      {/* 3. Main Split View: Light Interactive SVG Pit Map vs Selected Machine Inspector */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* Left (8 Cols): Dark Topographical Pit Map SVG */}
+        {/* Left (8 Cols): Topographical Pit Map SVG */}
         <div className="xl:col-span-8 bg-slate-50 border border-slate-200 rounded-2xl relative overflow-hidden shadow-2xl min-h-[560px]">
           {/* Top In-Map Stratum Bar */}
           <div className="absolute top-4 left-4 z-10 flex flex-wrap gap-2 text-xs font-mono">
-            <div className="bg-white/80 text-slate-800 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 text-slate-800 flex items-center gap-2">
+            <div className="bg-white/90 text-slate-800 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 text-slate-800 flex items-center gap-2 shadow-xs">
               <span className="w-2 h-2 rounded-full bg-orange-500"></span>
               <span>ACTIVE ROCK FACE: <strong className="text-orange-600">Hardness 184 MPa</strong></span>
             </div>
-            <div className="bg-white/80 text-slate-800 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700">
+            <div className="bg-white/90 text-slate-800 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 shadow-xs">
               AVG HAUL CYCLE: <strong>24.2 min</strong>
             </div>
-            <div className="bg-emerald-50 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-emerald-300 text-emerald-800 font-bold">
-              MESH 100% SYNC
-            </div>
+            {layerEdge && (
+              <div className="bg-emerald-50 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-emerald-300 text-emerald-800 font-bold shadow-xs flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                MESH 100% SYNC
+              </div>
+            )}
           </div>
 
           {/* SVG Map Canvas */}
@@ -134,46 +253,59 @@ export default function FleetMapPage() {
                 <stop offset="50%" stopColor="#F1F5F9" stopOpacity="0.9" />
                 <stop offset="100%" stopColor="#F8FAFC" stopOpacity="1.0" />
               </radialGradient>
-
-              {/* Stress Heatmap Gradient for EX-04 */}
               <radialGradient id="stressZoneEx04" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#EF4444" stopOpacity="0.45" />
-                <stop offset="40%" stopColor="#EF4444" stopOpacity="0.2" />
-                <stop offset="100%" stopColor="#EF4444" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="#EF4444" stopOpacity="0.35" />
+                <stop offset="60%" stopColor="#EF4444" stopOpacity="0.12" />
+                <stop offset="100%" stopColor="#EF4444" stopOpacity="0" />
+              </radialGradient>
+              <radialGradient id="thermalHeatZone" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.40" />
+                <stop offset="70%" stopColor="#EA580C" stopOpacity="0.15" />
+                <stop offset="100%" stopColor="#F59E0B" stopOpacity="0" />
               </radialGradient>
             </defs>
 
-            {/* Base Fill */}
+            {/* Base Pit Texture */}
             <rect width="800" height="560" fill="url(#pitGlow)" />
 
-            {/* Grid Lines */}
-            <g stroke="rgba(0,0,0,0.05)" strokeWidth="1">
-              {Array.from({ length: 9 }).map((_, i) => (
-                <line key={`h-${i}`} x1="0" y1={i * 70} x2="800" y2={i * 70} />
-              ))}
-              {Array.from({ length: 12 }).map((_, i) => (
-                <line key={`v-${i}`} x1={i * 70} y1="0" x2={i * 70} y2="560" />
-              ))}
-            </g>
+            {/* Thermal Stress Overlay Layer */}
+            {layerThermal && (
+              <g id="thermalOverlay">
+                <circle cx="450" cy="370" r="160" fill="url(#thermalHeatZone)" />
+                <circle cx="520" cy="320" r="110" fill="url(#thermalHeatZone)" />
+                <text x="420" y="230" fill="#D97706" fontSize="10" fontWeight="bold" fontFamily="monospace">
+                  [THERMAL HOTSPOT 96°C]
+                </text>
+              </g>
+            )}
 
-            {/* Bench Contours (Topographical lines) */}
-            <g fill="none" stroke="#94A3B8" strokeWidth="1.5">
-              <path d="M 40,160 Q 400,220 760,190" strokeDasharray="4 4" />
-              <text x="60" y="150" fill="#64748B" fontSize="10" fontFamily="monospace">--80M BENCH--</text>
+            {/* Elevation Contours Layer */}
+            {layerContours && (
+              <g stroke="#CBD5E1" strokeWidth="1" fill="none">
+                <path d="M 40,80 Q 400,120 760,60" />
+                <text x="60" y="70" fill="#64748B" fontSize="10" fontFamily="monospace">--40M BENCH SURFACE--</text>
 
-              <path d="M 80,270 Q 430,340 730,300" strokeDasharray="4 4" />
-              <text x="100" y="260" fill="#64748B" fontSize="10" fontFamily="monospace">--120M BENCH--</text>
+                <path d="M 50,160 Q 410,220 750,170" />
+                <text x="60" y="150" fill="#64748B" fontSize="10" fontFamily="monospace">--80M BENCH--</text>
 
-              <path d="M 140,390 Q 450,470 690,420" strokeDasharray="4 4" />
-              <text x="160" y="380" fill="#64748B" fontSize="10" fontFamily="monospace">--160M PIT FLOOR (HARD BASALT STRATUM)--</text>
-            </g>
+                <path d="M 80,270 Q 430,340 730,300" strokeDasharray="4 4" />
+                <text x="100" y="260" fill="#64748B" fontSize="10" fontFamily="monospace">--120M BENCH--</text>
 
-            {/* Red Shockwave Heatmap circle around EX-04 */}
-            <circle cx="440" cy="390" r="70" fill="url(#stressZoneEx04)" />
-            <circle cx="440" cy="390" r="90" fill="none" stroke="#EF4444" strokeWidth="1" strokeDasharray="4 4" opacity="0.6" />
+                <path d="M 140,390 Q 450,470 690,420" strokeDasharray="4 4" />
+                <text x="160" y="380" fill="#64748B" fontSize="10" fontFamily="monospace">--160M PIT FLOOR (HARD BASALT STRATUM)--</text>
+              </g>
+            )}
+
+            {/* Cavitation Alerts Radar Layer */}
+            {layerCavitation && (
+              <g id="cavitationZone">
+                <circle cx="440" cy="390" r="70" fill="url(#stressZoneEx04)" />
+                <circle cx="440" cy="390" r="90" fill="none" stroke="#EF4444" strokeWidth="1" strokeDasharray="4 4" opacity="0.6" />
+              </g>
+            )}
 
             {/* Machine Markers */}
-            {units.map((unit) => {
+            {unitsData.map((unit) => {
               const cx = unit.x;
               const cy = unit.y;
               const isSelected = selectedUnit === unit.id;
@@ -191,22 +323,22 @@ export default function FleetMapPage() {
                   )}
 
                   {/* Marker Node */}
-                  <circle cx={cx} cy={cy} r="16" fill={color} stroke="#FFFFFF" strokeWidth="3" />
+                  <circle cx={cx} cy={cy} r={isSelected ? 18 : 15} fill={color} stroke="#FFFFFF" strokeWidth="3" className="transition-all" />
                   
                   {/* Text inside node */}
                   <text x={cx} y={cy + 4} textAnchor="middle" fill="white" fontSize="10" fontWeight="bold" fontFamily="monospace">
                     {unit.id.replace("EX-", "")}
                   </text>
 
-                  {/* Tooltip Label */}
+                  {/* Active Tooltip Label */}
                   {isSelected && (
                     <g transform={`translate(${cx + 20}, ${cy - 20})`}>
-                      <rect width="170" height="44" rx="8" fill="#FFFFFF" stroke="#DC2626" strokeWidth="1.5" />
-                      <text x="12" y="18" fill="#DC2626" fontSize="11" fontWeight="bold" fontFamily="monospace">
-                        {unit.id} (SELECTED) • CRIT
+                      <rect width="170" height="44" rx="8" fill="#FFFFFF" stroke={color} strokeWidth="1.5" />
+                      <text x="12" y="18" fill={color} fontSize="11" fontWeight="bold" fontFamily="monospace">
+                        {unit.id} (SELECTED) • {unit.status.toUpperCase()}
                       </text>
                       <text x="12" y="33" fill="#475569" fontSize="10" fontFamily="monospace">
-                        CMSI {unit.cmsi} • CAVITATION 142Hz
+                        CMSI {unit.cmsi} • {unit.badge}
                       </text>
                     </g>
                   )}
@@ -217,46 +349,75 @@ export default function FleetMapPage() {
 
           {/* Map Scale and Compass */}
           <div className="absolute bottom-4 left-4 right-4 z-10 flex items-center justify-between text-xs text-slate-500 font-mono">
-            <div className="flex items-center gap-2 bg-white/80 text-slate-800 px-2.5 py-1 rounded border border-slate-200">
+            <div className="flex items-center gap-2 bg-white/90 text-slate-800 px-2.5 py-1 rounded border border-slate-200 shadow-xs">
               <span>SCALE</span>
               <div className="w-16 h-1 bg-slate-500 rounded"></div>
               <span>100m</span>
             </div>
-            <div className="bg-white/80 text-slate-800 px-2.5 py-1 rounded border border-slate-200 text-slate-700">
+            <div className="bg-white/90 text-slate-800 px-2.5 py-1 rounded border border-slate-200 text-slate-700 shadow-xs">
               Pit Heading: 042° NNE
             </div>
           </div>
         </div>
 
-        {/* Right (4 Cols): Selected Machine Telemetry Inspector */}
+        {/* Right (4 Cols): Selected Machine Telemetry Inspector (DYNAMIC BINDING) */}
         <div className="xl:col-span-4 space-y-4">
           {/* Header Card */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black text-slate-900 font-mono">EX-04</h3>
-                <span className="px-2 py-0.5 rounded bg-red-100 border border-red-200 text-red-700 text-[10px] font-bold font-mono uppercase">
-                  Critical Anomaly
+                <h3 className="text-lg font-black text-slate-900 font-mono">{currentUnit.id}</h3>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase border ${
+                  currentUnit.status === "critical" 
+                    ? "bg-red-100 border-red-200 text-red-700" 
+                    : currentUnit.status === "warning"
+                    ? "bg-amber-100 border-amber-200 text-amber-800"
+                    : "bg-emerald-100 border-emerald-200 text-emerald-800"
+                }`}>
+                  {currentUnit.badge}
                 </span>
+                {currentUnit.isLive && (
+                  <span className="px-1.5 py-0.5 rounded bg-orange-100 border border-orange-200 text-orange-700 text-[9px] font-bold font-mono">
+                    LIVE SENSOR
+                  </span>
+                )}
               </div>
               <div className="text-xs text-slate-500 font-mono mt-1">
-                Caterpillar 6040 FS • Sn: TC-8829-PX
+                {currentUnit.model} • Sn: {currentUnit.sn}
               </div>
             </div>
             <div className="text-right">
               <div className="text-[10px] font-mono text-slate-500 uppercase font-bold">Stress Index</div>
-              <div className="text-2xl font-black text-red-600 font-mono">94.0 <span className="text-xs text-slate-500 font-normal">CMSI</span></div>
+              <div className={`text-2xl font-black font-mono ${
+                currentUnit.cmsi >= 90 ? "text-red-600" : currentUnit.cmsi >= 70 ? "text-amber-600" : "text-emerald-600"
+              }`}>
+                {currentUnit.cmsi} <span className="text-xs text-slate-500 font-normal">CMSI</span>
+              </div>
             </div>
           </div>
 
-          {/* Hydraulic Cavitation Warning Banner */}
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl border border-slate-200 shadow-md">
+          {/* Anomaly / Status Warning Banner */}
+          <div className={`p-4 rounded-r-xl border shadow-md ${
+            currentUnit.status === "critical"
+              ? "bg-red-50 border-l-4 border-red-500 border-slate-200"
+              : currentUnit.status === "warning"
+              ? "bg-amber-50 border-l-4 border-amber-500 border-slate-200"
+              : "bg-emerald-50 border-l-4 border-emerald-500 border-slate-200"
+          }`}>
             <div className="flex items-start gap-3">
-              <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <ShieldAlert className={`w-5 h-5 shrink-0 mt-0.5 ${
+                currentUnit.status === "critical" ? "text-red-600" : currentUnit.status === "warning" ? "text-amber-600" : "text-emerald-600"
+              }`} />
               <div>
-                <div className="text-sm font-bold text-red-800">Hydraulic Cavitation Detected</div>
-                <div className="text-xs text-red-700/80 mt-1 leading-relaxed">
-                  142 Hz acoustic oscillation. High pressure shock on spool valve.
+                <div className={`text-sm font-bold ${
+                  currentUnit.status === "critical" ? "text-red-800" : currentUnit.status === "warning" ? "text-amber-800" : "text-emerald-800"
+                }`}>
+                  {currentUnit.title}
+                </div>
+                <div className={`text-xs mt-1 leading-relaxed ${
+                  currentUnit.status === "critical" ? "text-red-700/80" : currentUnit.status === "warning" ? "text-amber-800/80" : "text-emerald-800/80"
+                }`}>
+                  {currentUnit.detail}
                 </div>
               </div>
             </div>
@@ -268,7 +429,7 @@ export default function FleetMapPage() {
               <span className="text-slate-500 uppercase tracking-wider">Excavator Kinematics Readout</span>
               <span className="text-emerald-700 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                Live IMU 200Hz
+                {currentUnit.isLive ? "Live IMU (Echa ESP32)" : "Pit Telemetry Loop"}
               </span>
             </div>
 
@@ -276,28 +437,28 @@ export default function FleetMapPage() {
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="text-[10px] text-slate-500 uppercase">Boom Angle</div>
                 <div className="text-base font-black text-slate-900 mt-1">
-                  {ex04?.kinematics.boom_angle ?? 34.8}° <span className="text-xs text-slate-500 font-normal">±1.2°</span>
+                  {currentUnit.boom}° <span className="text-xs text-slate-500 font-normal">±1.2°</span>
                 </div>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="text-[10px] text-slate-500 uppercase">Arm Reach</div>
                 <div className="text-base font-black text-slate-900 mt-1">
-                  {ex04?.kinematics.arm_reach ?? 9.2}m <span className="text-xs text-slate-500 font-normal">Max 11.5m</span>
+                  {currentUnit.arm}m <span className="text-xs text-slate-500 font-normal">Max 11.5m</span>
                 </div>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="text-[10px] text-slate-500 uppercase">Hydraulic Relief</div>
-                <div className="text-base font-black text-red-600 mt-1">
-                  {ex04?.hydraulic_pressure_mpa ?? 34.8} MPa
+                <div className={`text-base font-black mt-1 ${currentUnit.pressure >= 30 ? "text-red-600" : "text-slate-900"}`}>
+                  {currentUnit.pressure} MPa
                 </div>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="text-[10px] text-slate-500 uppercase">Manifold Temp</div>
-                <div className="text-base font-black text-amber-700 mt-1">
-                  {ex04?.manifold_temp_c ?? 96.4}°C
+                <div className={`text-base font-black mt-1 ${currentUnit.temp >= 85 ? "text-amber-700" : "text-slate-900"}`}>
+                  {currentUnit.temp}°C
                 </div>
               </div>
             </div>
@@ -306,9 +467,9 @@ export default function FleetMapPage() {
             <div className="pt-2">
               <Link
                 href="/diagnostics"
-                className="w-full py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition shadow-md shadow-orange-950/40 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl text-xs transition shadow-md shadow-orange-950/40 flex items-center justify-center gap-2 cursor-pointer"
               >
-                Open Full Neural Diagnostics
+                Open Full Neural Diagnostics ({currentUnit.id})
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>

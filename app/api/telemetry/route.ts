@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 // In-memory telemetry state for TerraCortex Fleet Operations
-let telemetryState = {
+let telemetryState: any = {
   status: "ONLINE",
   stream_status: "HEALTHY",
   latency_ms: 42,
@@ -13,7 +13,7 @@ let telemetryState = {
   last_updated: new Date().toISOString(),
   units: {
     "EX-04": {
-      model: "Caterpillar 6040 FS",
+      model: "Caterpillar 6040 FS (Live: Echa ESP32)",
       serial: "TC-8829-PX",
       operator: "M. Kowalski",
       status: "CRITICAL",
@@ -70,6 +70,7 @@ let telemetryState = {
       hours: "4,210",
       actionType: "primary",
       actionLabel: "Work Order",
+      isCritical: true,
     },
     {
       rank: "#02",
@@ -85,6 +86,7 @@ let telemetryState = {
       hours: "6,840",
       actionType: "secondary",
       actionLabel: "Work Order",
+      isCritical: false,
     },
     {
       rank: "#03",
@@ -100,6 +102,7 @@ let telemetryState = {
       hours: "5,110",
       actionType: "secondary",
       actionLabel: "Work Order",
+      isCritical: false,
     },
     {
       rank: "#04",
@@ -115,6 +118,7 @@ let telemetryState = {
       hours: "8,920",
       actionType: "secondary",
       actionLabel: "Schedule",
+      isCritical: false,
     },
     {
       rank: "#05",
@@ -130,6 +134,7 @@ let telemetryState = {
       hours: "2,350",
       actionType: "secondary",
       actionLabel: "Monitor",
+      isCritical: false,
     },
     {
       rank: "#06",
@@ -145,6 +150,7 @@ let telemetryState = {
       hours: "1,140",
       actionType: "secondary",
       actionLabel: "Monitor",
+      isCritical: false,
     },
   ],
 };
@@ -156,15 +162,50 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const targetId = body.unit_id || "EX-04";
 
-    if (body.unit_id && telemetryState.units[body.unit_id as keyof typeof telemetryState.units]) {
-      const u = telemetryState.units[body.unit_id as keyof typeof telemetryState.units];
+    if (telemetryState.units[targetId]) {
+      const u = telemetryState.units[targetId];
       if (body.hydraulic_pressure !== undefined) u.hydraulic_pressure_mpa = Number(body.hydraulic_pressure);
       if (body.manifold_temp !== undefined) u.manifold_temp_c = Number(body.manifold_temp);
       if (body.cavitation_freq !== undefined) u.cavitation_freq_hz = Number(body.cavitation_freq);
       if (body.cmsi !== undefined) u.cmsi = Number(body.cmsi);
+      if (body.status !== undefined) u.status = body.status;
+      if (body.anomaly_detail) u.anomaly_detail = body.anomaly_detail;
+      if (body.primary_anomaly) u.primary_anomaly = body.primary_anomaly;
       if (body.kinematics) u.kinematics = { ...u.kinematics, ...body.kinematics };
+
+      // Update queue item for EX-04
+      const qItem = telemetryState.queue.find((q: any) => q.id === targetId);
+      if (qItem) {
+        qItem.cmsi = u.cmsi;
+        if (u.cmsi >= 90) {
+          qItem.dotColor = "bg-red-500";
+          qItem.barColor = "bg-red-500";
+          qItem.isCritical = true;
+          qItem.primaryAnomaly = "Hydraulic Cavitation Anomaly";
+          qItem.anomalyDetail = u.anomaly_detail || `Relief pressure spike (${u.hydraulic_pressure_mpa} MPa)`;
+        } else if (u.cmsi >= 70) {
+          qItem.dotColor = "bg-amber-500";
+          qItem.barColor = "bg-amber-500";
+          qItem.isCritical = false;
+          qItem.primaryAnomaly = "Elevated Hydraulic Load";
+          qItem.anomalyDetail = u.anomaly_detail || `High line pressure (${u.hydraulic_pressure_mpa} MPa)`;
+        } else {
+          qItem.dotColor = "bg-emerald-500";
+          qItem.barColor = "bg-emerald-500";
+          qItem.isCritical = false;
+          qItem.primaryAnomaly = "Normal Operating Envelope";
+          qItem.anomalyDetail = u.anomaly_detail || `Nominal pressure (${u.hydraulic_pressure_mpa} MPa)`;
+        }
+      }
     }
+
+    // Re-sort queue by CMSI descending
+    telemetryState.queue.sort((a: any, b: any) => b.cmsi - a.cmsi);
+    telemetryState.queue.forEach((q: any, i: number) => {
+      q.rank = `#0${i + 1}`;
+    });
 
     if (body.fleet_health_score !== undefined) telemetryState.fleet_health_score = Number(body.fleet_health_score);
     if (body.active_anomalies !== undefined) telemetryState.active_anomalies = Number(body.active_anomalies);
