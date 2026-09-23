@@ -14,7 +14,7 @@ export default function WorkOrderModal({ isOpen, onClose, unitId = "EX-04" }: Wo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn font-sans text-xs">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden font-mono">
+      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden font-sans">
         {/* Header */}
         <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-3">
@@ -23,7 +23,7 @@ export default function WorkOrderModal({ isOpen, onClose, unitId = "EX-04" }: Wo
             </div>
             <div>
               <div className="text-[10px] text-orange-600 font-bold uppercase tracking-wider">Condition-Based Maintenance</div>
-              <h3 className="text-base font-black text-slate-900 font-sans">Work Order #WO-8841-HYD</h3>
+              <h3 className="text-base font-bold text-slate-900 font-sans">Work Order #WO-8841-HYD</h3>
             </div>
           </div>
           <button 
@@ -40,7 +40,7 @@ export default function WorkOrderModal({ isOpen, onClose, unitId = "EX-04" }: Wo
           <div className="flex items-center justify-between p-3.5 rounded-xl bg-red-50 border border-red-200">
             <div>
               <span className="text-[10px] text-slate-500 uppercase">Target Asset</span>
-              <div className="text-sm font-bold text-slate-900 font-sans mt-0.5">{unitId} — CAT 6040 FS</div>
+              <div className="text-sm font-bold text-slate-900 font-sans mt-0.5">{unitId} — XCMG XE4000 Mining Shovel</div>
             </div>
             <span className="px-2.5 py-1 rounded bg-red-100 border border-red-300 text-red-800 text-[10px] font-bold uppercase">
               Critical • Immediate Hold

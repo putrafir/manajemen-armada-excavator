@@ -7,7 +7,8 @@ import {
   HeartPulse,
   ShieldAlert,
   Wrench,
-  Radio
+  Radio,
+  CheckCircle2
 } from "lucide-react";
 import WorkOrderModal from "@/components/WorkOrderModal";
 import { useTelemetry } from "@/context/TelemetryContext";
@@ -31,7 +32,7 @@ export default function Dashboard() {
     {
       id: "EX-04",
       isLiveSimulation: true,
-      model: "CAT 6040 FS (Live ESP32)",
+      model: "XCMG XE4000 (Live ESP32)",
       operator: "M. Kowalski",
       cmsi: ex04Cmsi,
       primaryAnomaly: isEx04Critical 
@@ -46,7 +47,7 @@ export default function Dashboard() {
     },
     {
       id: "EX-12",
-      model: "Komatsu PC8000-11",
+      model: "XCMG XE7000 Mining Excavator",
       operator: "R. Chen",
       cmsi: 83.1,
       primaryAnomaly: "Slew Bearing Harmonic Spike",
@@ -57,7 +58,7 @@ export default function Dashboard() {
     },
     {
       id: "EX-27",
-      model: "Hitachi EX5600-7",
+      model: "XCMG XE2000 Mining Excavator",
       operator: "J. Botha",
       cmsi: 79.4,
       primaryAnomaly: "Cylinder Seal Bypass",
@@ -68,7 +69,7 @@ export default function Dashboard() {
     },
     {
       id: "EX-08",
-      model: "CAT 6060",
+      model: "XCMG XE1250 Mining Excavator",
       operator: "S. Tanaka",
       cmsi: 58.2,
       primaryAnomaly: "Hydraulic Thermal Drift",
@@ -79,7 +80,7 @@ export default function Dashboard() {
     },
     {
       id: "EX-19",
-      model: "Liebherr R9800",
+      model: "XCMG XE950G Heavy Excavator",
       operator: "D. Vance",
       cmsi: 44.0,
       primaryAnomaly: "Nominal Wear Envelope",
@@ -90,7 +91,7 @@ export default function Dashboard() {
     },
     {
       id: "EX-31",
-      model: "Komatsu PC4000-11",
+      model: "XCMG XE700D Heavy Excavator",
       operator: "K. Mensah",
       cmsi: 38.6,
       primaryAnomaly: "Nominal Wear Envelope",
@@ -110,104 +111,132 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 max-w-[1560px] mx-auto font-sans pb-12">
       {/* 1. Clean Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 p-5 rounded-2xl shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200/70 p-5 rounded-2xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
         <div>
-          <div className="text-[10px] font-mono font-bold text-orange-600 uppercase tracking-widest">
-            SECTOR 4 NORTHERN PIT
+          <div className="text-[10px] font-sans font-bold text-orange-600 uppercase tracking-widest">
+            OPERATIONS DISPATCH &bull; SEVERITY-WEIGHTED QUEUE
           </div>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight mt-0.5">
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight mt-0.5">
             Operations Overview & Priority Queue
           </h1>
-          <div className="text-xs text-slate-500 font-mono mt-1">
+          <div className="text-xs text-slate-500 font-sans mt-1">
             Active Fleet • Live MQTT Sync (Echa ESP32)
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-mono font-bold flex items-center gap-1.5 shadow-xs">
+          <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-sans font-bold flex items-center gap-1.5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
             <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
             Live Telemetry: {ex04Pressure} MPa
           </span>
         </div>
       </div>
 
-      {/* 2. 4 Clean HUD Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
-        <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs">
-          <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
-            <span className="text-[10px] uppercase font-bold text-slate-500">ACTIVE FLEET</span>
-            <HardHat className="w-4 h-4 text-sky-500" />
+      {/* 2. 4 Clean HUD Metric Cards with prominent icons */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Active Fleet */}
+        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Fleet</span>
+            <div className="w-11 h-11 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 shadow-xs">
+              <HardHat className="w-6 h-6 stroke-[1.85]" />
+            </div>
           </div>
-          <div className="text-3xl font-black text-slate-900">48 <span className="text-sm text-slate-500 font-normal">/ 52</span></div>
-          <div className="text-xs text-emerald-600 font-semibold mt-2">92.3% Utilization (Nominal)</div>
+          <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+            48 <span className="text-sm text-slate-400 font-normal">/ 52 units</span>
+          </div>
+          <div className="text-xs text-emerald-700 font-medium mt-2 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            92.3% Nominal Utilization
+          </div>
         </div>
 
-        <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs">
-          <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
-            <span className="text-[10px] uppercase font-bold text-slate-500">FLEET HEALTH</span>
-            <HeartPulse className="w-4 h-4 text-emerald-500" />
+        {/* Fleet Health */}
+        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Fleet Health</span>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-xs">
+              <HeartPulse className="w-6 h-6 stroke-[1.85]" />
+            </div>
           </div>
-          <div className="text-3xl font-black text-slate-900">
-            {isEx04Critical ? "84.2" : "88.4"} <span className="text-sm text-slate-500 font-normal">/ 100</span>
+          <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+            {isEx04Critical ? "84.2" : "88.4"} <span className="text-sm text-slate-400 font-normal">/ 100</span>
           </div>
-          <div className="text-xs text-slate-500 mt-2">Target benchmark: 85.0+</div>
+          <div className="text-xs text-slate-500 font-medium mt-2">Target baseline: 85.0+ index</div>
         </div>
 
-        <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs">
-          <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
-            <span className="text-[10px] uppercase font-bold text-slate-500">ACTIVE ANOMALIES</span>
-            <AlertTriangle className="w-4 h-4 text-orange-500" />
+        {/* Active Anomalies */}
+        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Anomalies</span>
+            <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shadow-xs">
+              <AlertTriangle className="w-6 h-6 stroke-[1.85]" />
+            </div>
           </div>
-          <div className="text-3xl font-black text-slate-900">{isEx04Critical ? "14" : "12"}</div>
-          <div className="flex items-center gap-2 mt-2 text-[10px] font-bold">
-            <span className={`px-2 py-0.5 rounded border ${isEx04Critical ? "text-red-700 bg-red-100 border-red-200" : "text-slate-600 bg-slate-100 border-slate-200"}`}>
+          <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+            {isEx04Critical ? "14" : "12"}
+          </div>
+          <div className="flex items-center gap-1.5 mt-2">
+            <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
+              isEx04Critical ? "text-rose-700 bg-rose-50 border-rose-200/70" : "text-slate-600 bg-slate-100 border-slate-200/70"
+            }`}>
               {isEx04Critical ? "2 Critical" : "1 Critical"}
             </span>
-            <span className="text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-200">5 High</span>
+            <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-amber-200/70">
+              5 Elevated
+            </span>
           </div>
         </div>
 
         {/* Dynamic Critical Hold / Live Status Card */}
         {isEx04Critical ? (
-          <div className="bg-red-50 border border-red-200 p-5 rounded-2xl shadow-xs">
-            <div className="flex items-center justify-between text-red-500 text-xs mb-1.5">
-              <span className="text-[10px] uppercase font-bold text-red-700">CRITICAL HOLD</span>
-              <ShieldAlert className="w-4 h-4 text-red-600" />
+          <div className="bg-rose-50/70 border border-rose-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-rose-700 uppercase tracking-wider">Critical Alert</span>
+              <div className="w-11 h-11 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center text-rose-600 shadow-xs">
+                <ShieldAlert className="w-6 h-6 stroke-[1.85]" />
+              </div>
             </div>
-            <div className="text-3xl font-black text-red-700">EX-04</div>
-            <div className="text-xs text-red-800 font-sans mt-2">{ex04?.anomaly_detail || "Cavitation failure risk (<48h RUL)"}</div>
+            <div className="text-3xl font-extrabold text-rose-900 tracking-tight">EX-04</div>
+            <div className="text-xs text-rose-700 font-medium mt-2 line-clamp-1">
+              {ex04?.anomaly_detail || "Cavitation risk (<48h RUL)"}
+            </div>
           </div>
         ) : (
-          <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl shadow-xs">
-            <div className="flex items-center justify-between text-emerald-600 text-xs mb-1.5">
-              <span className="text-[10px] uppercase font-bold text-emerald-800">LIVE STATUS</span>
-              <HeartPulse className="w-4 h-4 text-emerald-600" />
+          <div className="bg-emerald-50/70 border border-emerald-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Live Telemetry</span>
+              <div className="w-11 h-11 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-xs">
+                <HeartPulse className="w-6 h-6 stroke-[1.85]" />
+              </div>
             </div>
-            <div className="text-3xl font-black text-emerald-800">EX-04 (OK)</div>
-            <div className="text-xs text-emerald-700 font-sans mt-2">{ex04Pressure} MPa • Safe Operating Limit</div>
+            <div className="text-3xl font-extrabold text-emerald-900 tracking-tight">EX-04 (OK)</div>
+            <div className="text-xs text-emerald-700 font-medium mt-2">
+              {ex04Pressure} MPa &bull; Normal Envelope
+            </div>
           </div>
         )}
       </div>
 
       {/* 3. Priority Maintenance Queue Table */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden font-mono text-xs">
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+      <div className="bg-white border border-slate-200/70 rounded-2xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] overflow-hidden font-sans text-xs">
+        <div className="p-5 border-b border-slate-200/70 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-black text-slate-900 font-sans">
+            <h2 className="text-base font-bold text-slate-900 font-sans">
               Priority Maintenance Queue
             </h2>
             <div className="text-xs text-slate-500 font-sans mt-0.5">
               Ranked dynamically by Live CMSI Score
             </div>
           </div>
-          <span className="text-[10px] font-mono text-slate-500">
+          <span className="text-[10px] font-sans text-slate-500">
             Auto-sorts by Real-time Sensor Stress
           </span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-slate-700">
-            <thead className="bg-slate-50 text-[10px] text-slate-600 uppercase tracking-wider border-b border-slate-200">
+            <thead className="bg-slate-50 text-[10px] text-slate-600 uppercase tracking-wider border-b border-slate-200/70">
               <tr>
                 <th className="py-3.5 px-6">Rank</th>
                 <th className="py-3.5 px-6">Machine</th>
@@ -244,7 +273,7 @@ export default function Dashboard() {
                   {/* CMSI */}
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-2.5">
-                      <span className={`font-black text-sm w-10 ${
+                      <span className={`font-bold text-sm w-10 ${
                         row.cmsi >= 90 ? "text-red-600" : row.cmsi >= 70 ? "text-amber-600" : "text-emerald-600"
                       }`}>
                         {row.cmsi}
@@ -263,7 +292,7 @@ export default function Dashboard() {
                   {/* Anomaly */}
                   <td className="py-4 px-6 font-sans">
                     <div className="font-semibold text-slate-900">{row.primaryAnomaly}</div>
-                    <div className="text-[11px] text-slate-500 font-mono mt-0.5">{row.anomalyDetail}</div>
+                    <div className="text-[11px] text-slate-500 font-sans mt-0.5">{row.anomalyDetail}</div>
                   </td>
 
                   {/* Hours */}
@@ -273,21 +302,19 @@ export default function Dashboard() {
 
                   {/* Action */}
                   <td className="py-4 px-6 text-right font-sans">
-                    {row.isCritical ? (
+                    {row.cmsi >= 70 ? (
                       <button
                         onClick={() => openWorkOrder(row.id)}
-                        className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition shadow-md shadow-orange-950/40 cursor-pointer inline-flex items-center gap-1.5 text-xs"
+                        className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition shadow-md shadow-orange-500/20 cursor-pointer inline-flex items-center gap-1.5 text-xs"
                       >
                         <Wrench className="w-3.5 h-3.5" />
                         Work Order
                       </button>
                     ) : (
-                      <button
-                        onClick={() => openWorkOrder(row.id)}
-                        className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg border border-slate-200 transition cursor-pointer inline-flex items-center gap-1.5 text-xs"
-                      >
-                        Details
-                      </button>
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-semibold border border-emerald-200/60 inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        Nominal Cycle
+                      </span>
                     )}
                   </td>
                 </tr>

@@ -33,89 +33,110 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6 max-w-[1560px] mx-auto font-sans pb-12">
       {/* 1. Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200 p-5 rounded-2xl shadow-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200/70 p-5 rounded-2xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
         <div>
-          <div className="text-[10px] font-mono text-orange-600 font-bold uppercase tracking-widest">
+          <div className="text-[10px] font-sans text-orange-600 font-bold uppercase tracking-widest">
             FLEET ANALYTICS & WEAR PREDICTION
           </div>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight mt-1">
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight mt-1">
             Predictive Mechanical Wear & Degradation Curve
           </h1>
-          <p className="text-xs text-slate-500 mt-1 font-mono">
+          <p className="text-xs text-slate-500 mt-1 font-sans">
             Real-time multi-physics fatigue modeling vs linear OEM maintenance schedules.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-mono font-bold flex items-center gap-1.5 shadow-xs">
+          <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-sans font-bold flex items-center gap-1.5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
             <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
             Live Stress Telemetry: CMSI {cmsi}
           </span>
         </div>
       </div>
 
-      {/* 2. Top 4 Metric KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-xs">
+      {/* 2. Top 4 Metric KPI Cards with prominent icons */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Metric 1 */}
-        <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-lg">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
-            <span className="uppercase text-[10px] font-bold">RELIABILITY EPOCH</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reliability Epoch</span>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-xs">
+              <ShieldCheck className="w-6 h-6 stroke-[1.85]" />
+            </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">142.6 <span className="text-xs text-slate-500 font-normal">+18.4% hrs</span></div>
-          <div className="text-[11px] text-slate-500 mt-1">Mean Time Between Anomalies (MTBA)</div>
+          <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+            142.6 <span className="text-sm text-slate-400 font-normal">hrs</span>
+          </div>
+          <div className="text-xs text-emerald-700 font-medium mt-2 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            +18.4% Mean Time Between Failures
+          </div>
         </div>
 
         {/* Metric 2 */}
-        <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-lg">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
-            <span className="uppercase text-[10px] font-bold">FLEET FATIGUE INDEX</span>
-            <Activity className={`w-4 h-4 ${isCritical ? "text-red-600" : "text-emerald-600"}`} />
+        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Fleet Fatigue Index</span>
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-xs border ${
+              isCritical ? "bg-rose-50 border-rose-100 text-rose-600" : "bg-sky-50 border-sky-100 text-sky-600"
+            }`}>
+              <Activity className="w-6 h-6 stroke-[1.85]" />
+            </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">{fatigueIndex} <span className="text-xs text-slate-500 font-normal">/ 100</span></div>
-          <div className={`text-[11px] font-semibold mt-1 ${isCritical ? "text-red-600" : "text-emerald-600"}`}>
-            {isCritical ? "+9.2 elevation above baseline" : "Nominal fleet fatigue band"}
+          <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+            {fatigueIndex} <span className="text-sm text-slate-400 font-normal">/ 100</span>
+          </div>
+          <div className={`text-xs font-medium mt-2 ${isCritical ? "text-rose-700" : "text-slate-500"}`}>
+            {isCritical ? "+9.2 elevation above baseline" : "Nominal fleet mechanical fatigue"}
           </div>
         </div>
 
         {/* Metric 3 */}
-        <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-lg">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
-            <span className="uppercase text-[10px] font-bold">INTERVENTION ROI</span>
-            <TrendingUp className="w-4 h-4 text-emerald-600" />
+        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Intervention ROI</span>
+            <div className="w-11 h-11 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600 shadow-xs">
+              <TrendingUp className="w-6 h-6 stroke-[1.85]" />
+            </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">96.5 <span className="text-xs text-slate-500 font-normal">hrs saved</span></div>
-          <div className="text-[11px] text-slate-500 mt-1">Downtime averted via prescriptive work orders</div>
+          <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+            96.5 <span className="text-sm text-slate-400 font-normal">hrs</span>
+          </div>
+          <div className="text-xs text-slate-500 font-medium mt-2">Downtime averted via prescriptive WO</div>
         </div>
 
         {/* Metric 4 */}
-        <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-lg">
-          <div className="flex items-center justify-between text-slate-500 mb-1">
-            <span className="uppercase text-[10px] font-bold">DATA PIPELINE</span>
-            <Database className="w-4 h-4 text-sky-600" />
+        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Data Pipeline</span>
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+              <Database className="w-6 h-6 stroke-[1.85]" />
+            </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">1.84 <span className="text-xs text-slate-500 font-normal">Billion Pts/Shift</span></div>
-          <div className="text-[11px] text-slate-500 mt-1">99.98% edge sync rate (Private LTE Mesh)</div>
+          <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+            1.84 <span className="text-sm text-slate-400 font-normal">B pts/shift</span>
+          </div>
+          <div className="text-xs text-emerald-700 font-medium mt-2">99.98% Edge telemetry sync rate</div>
         </div>
       </div>
 
       {/* 3. Main Split View: Wear Curves vs Asset Ranking */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left (8 Cols): Degradation Curve Chart */}
-        <div className="xl:col-span-8 bg-white border border-slate-200 rounded-2xl p-6 shadow-xl space-y-6">
+        <div className="xl:col-span-8 bg-white border border-slate-200/70 rounded-2xl p-6 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] space-y-6">
           <div>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-black text-slate-900 font-mono">
+                <h3 className="text-base font-bold text-slate-900 font-sans">
                   Predictive Wear vs Linear OEM Schedules
                 </h3>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">
+                <p className="text-xs text-slate-500 font-sans mt-0.5">
                   OEM Linear (Grey) vs TerraCortex CMSI Reality (Orange/Red)
                 </p>
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-4 text-xs font-mono">
+              <div className="flex items-center gap-4 text-xs font-sans">
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-0.5 bg-slate-400"></span>
                   <span className="text-slate-500">Linear OEM (5,000h)</span>
@@ -128,8 +149,8 @@ export default function AnalyticsPage() {
             </div>
 
             {/* SVG Wear Degradation Chart */}
-            <div className="mt-4 pt-4 border-t border-slate-200">
-              <svg viewBox="0 0 700 240" className="w-full h-64 font-mono text-xs select-none">
+            <div className="mt-4 pt-4 border-t border-slate-200/70">
+              <svg viewBox="0 0 700 240" className="w-full h-64 font-sans text-xs select-none">
                 {/* Horizontal Gridlines */}
                 <line x1="40" y1="30" x2="660" y2="30" stroke="#F1F5F9" strokeWidth="1" />
                 <line x1="40" y1="80" x2="660" y2="80" stroke="#F1F5F9" strokeWidth="1" />
@@ -180,7 +201,7 @@ export default function AnalyticsPage() {
                 </text>
               </svg>
 
-              <div className="flex justify-between text-[11px] text-slate-500 font-mono mt-2 px-12">
+              <div className="flex justify-between text-[11px] text-slate-500 font-sans mt-2 px-12">
                 <span>0 Operating Hours</span>
                 <span>1,250h</span>
                 <span>2,500h</span>
@@ -190,8 +211,8 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Accelerated Stress Breakdown Vectors */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 font-mono text-xs">
-              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 font-sans text-xs">
+              <div className="bg-slate-50 border border-slate-200/70 p-3.5 rounded-xl">
                 <div className="text-orange-600 font-bold text-base">{isCritical ? "+38%" : "+12%"}</div>
                 <div className="text-slate-900 font-semibold mt-0.5">Hydraulic Shockwave</div>
                 <div className="text-[11px] text-slate-500 font-sans mt-1">
@@ -199,7 +220,7 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl">
+              <div className="bg-slate-50 border border-slate-200/70 p-3.5 rounded-xl">
                 <div className="text-orange-600 font-bold text-base">{isCritical ? "+42%" : "+18%"}</div>
                 <div className="text-slate-900 font-semibold mt-0.5">Quartz Micro-Abrasives</div>
                 <div className="text-[11px] text-slate-500 font-sans mt-1">
@@ -207,7 +228,7 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl">
+              <div className="bg-slate-50 border border-slate-200/70 p-3.5 rounded-xl">
                 <div className="text-orange-600 font-bold text-base">{isCritical ? "+20%" : "+8%"}</div>
                 <div className="text-slate-900 font-semibold mt-0.5">Dynamic Slew Shock</div>
                 <div className="text-[11px] text-slate-500 font-sans mt-1">
@@ -221,10 +242,10 @@ export default function AnalyticsPage() {
         {/* Right (4 Cols): Fleet Machine Wear Delta Gap & Work Zone Index */}
         <div className="xl:col-span-4 space-y-6">
           {/* Machine Wear Delta Gap */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xl space-y-4 font-mono text-xs">
+          <div className="bg-white border border-slate-200/70 rounded-2xl p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] space-y-4 font-sans text-xs">
             <div>
               <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">RISK DISTRIBUTION</div>
-              <h3 className="text-base font-black text-slate-900 mt-1">Fleet Machine Wear Delta Gap</h3>
+              <h3 className="text-base font-bold text-slate-900 mt-1">Fleet Machine Wear Delta Gap</h3>
               <p className="text-xs text-slate-500 font-sans mt-0.5">
                 Logged operating hours vs true mechanical fatigue.
               </p>
@@ -241,7 +262,7 @@ export default function AnalyticsPage() {
                       LIVE
                     </span>
                   </div>
-                  <span className={`font-black text-sm ${ex04Color}`}>{ex04DeltaHrs} Wear</span>
+                  <span className={`font-bold text-sm ${ex04Color}`}>{ex04DeltaHrs} Wear</span>
                 </div>
                 <div className="text-[11px] text-slate-500 mt-1">
                   Actual: 3,240h • <strong className={ex04Color}>CMSI Equiv: {ex04EquivHrs}</strong>
@@ -261,7 +282,7 @@ export default function AnalyticsPage() {
                     <strong className="text-slate-900 text-sm">EX-12</strong>
                     <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">ELEVATED</span>
                   </div>
-                  <span className="text-amber-700 font-black text-sm">+840 hrs Wear</span>
+                  <span className="text-amber-700 font-bold text-sm">+840 hrs Wear</span>
                 </div>
                 <div className="text-[11px] text-slate-500 mt-1">
                   Actual: 6,840h • <strong className="text-amber-800">CMSI Equiv: 7,680h (1.8x Accel)</strong>
@@ -278,7 +299,7 @@ export default function AnalyticsPage() {
                     <strong className="text-slate-900 text-sm">EX-27</strong>
                     <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">ELEVATED</span>
                   </div>
-                  <span className="text-amber-700 font-black text-sm">+620 hrs Wear</span>
+                  <span className="text-amber-700 font-bold text-sm">+620 hrs Wear</span>
                 </div>
                 <div className="text-[11px] text-slate-500 mt-1">
                   Actual: 5,110h • <strong className="text-amber-800">CMSI Equiv: 5,730h (1.5x Accel)</strong>
@@ -290,34 +311,52 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* Work Zone Stress Index */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xl space-y-3 font-mono text-xs">
-            <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">GEOTECH EXPOSURE</div>
-            <h4 className="text-sm font-bold text-slate-900">Work Zone Pit Stress Ranking</h4>
+          {/* Subsystem Component Wear Lifecycle */}
+          <div className="bg-white border border-slate-200/70 rounded-2xl p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] space-y-3 font-sans text-xs">
+            <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">SUBSYSTEM LIFECYCLE</div>
+            <h4 className="text-sm font-bold text-slate-900">Component Degradation Velocity</h4>
 
             <div className="space-y-2.5 pt-1">
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                <div>
-                  <div className="text-slate-900 font-bold">Sector 4 (North Bench)</div>
-                  <div className="text-[10px] text-slate-500">Hard Basalt (184 MPa)</div>
+              <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200/70">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-slate-900 font-bold">Main Hydraulic Spool Seal</span>
+                  <span className="text-red-600 font-bold text-[11px]">3.4x Accel (EX-04)</span>
                 </div>
-                <span className="text-red-600 font-black text-sm">Index 92</span>
+                <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-red-500 h-full rounded-full" style={{ width: "94%" }}></div>
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                  <span>Fatigue: Critical (Cavitation)</span>
+                  <span>RUL: &lt;48h</span>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                <div>
-                  <div className="text-slate-900 font-bold">Sector 1 (East Face)</div>
-                  <div className="text-[10px] text-slate-500">Banded Iron Formation (145 MPa)</div>
+              <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200/70">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-slate-900 font-bold">Slew Ring Raceway Bearing</span>
+                  <span className="text-amber-700 font-bold text-[11px]">1.8x Accel (EX-12)</span>
                 </div>
-                <span className="text-amber-700 font-black text-sm">Index 74</span>
+                <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-amber-500 h-full rounded-full" style={{ width: "72%" }}></div>
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                  <span>Fatigue: Harmonic Spike</span>
+                  <span>RUL: 180h</span>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                <div>
-                  <div className="text-slate-900 font-bold">Sector 2 (West Bench)</div>
-                  <div className="text-[10px] text-slate-500">Soft Shale & Sandstone (74 MPa)</div>
+              <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200/70">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-slate-900 font-bold">Boom Cylinder Wiper Ring</span>
+                  <span className="text-emerald-700 font-bold text-[11px]">1.0x Nominal</span>
                 </div>
-                <span className="text-emerald-700 font-black text-sm">Index 42</span>
+                <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: "32%" }}></div>
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                  <span>Fatigue: Healthy Envelope</span>
+                  <span>RUL: 2,400h</span>
+                </div>
               </div>
             </div>
           </div>

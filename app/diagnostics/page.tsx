@@ -108,8 +108,8 @@ export default function DiagnosticsPage() {
   const unitProfiles = {
     "EX-04": {
       id: "EX-04",
-      model: "Caterpillar 6040 FS",
-      sn: "TC-8829-PX",
+      model: "XCMG XE4000 Mining Shovel",
+      sn: "XCMG-8829-PX",
       rock: "Hard Basalt",
       rockMpa: "184 MPa (vs 144 limit)",
       anomalyScore: isEx04Crit ? "MSE 115.33" : isEx04Warn ? "MSE 54.10" : "MSE 11.20",
@@ -162,8 +162,8 @@ export default function DiagnosticsPage() {
     },
     "EX-12": {
       id: "EX-12",
-      model: "Komatsu PC8000-11",
-      sn: "KM-7104-AZ",
+      model: "XCMG XE7000 Mining Excavator",
+      sn: "XCMG-7104-AZ",
       rock: "Banded Iron Formation",
       rockMpa: "145 MPa (vs 140 limit)",
       anomalyScore: "MSE 84.10",
@@ -211,34 +211,34 @@ export default function DiagnosticsPage() {
   return (
     <div className="space-y-6 max-w-[1560px] mx-auto font-sans pb-12">
       {/* 1. Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200 p-5 rounded-2xl shadow-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200/70 p-5 rounded-2xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-600">
               <Cpu className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-[10px] font-mono font-bold uppercase tracking-widest text-orange-600">
+              <div className="text-[10px] font-sans font-bold uppercase tracking-widest text-orange-600">
                 Operations Intelligence Console
               </div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight">
                 Neural Fault Diagnostics
               </h1>
             </div>
           </div>
-          <p className="text-xs text-slate-500 mt-1 font-mono">
+          <p className="text-xs text-slate-500 mt-1 font-sans">
             Deterministic signal extraction & rock strata anomaly analysis for fleet assets.
           </p>
         </div>
 
         {/* Navigation Tabs & Unit Badges */}
-        <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <div className="flex flex-wrap items-center gap-3 font-sans text-xs">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/70">
             <button
               onClick={() => setActiveTab("telemetry")}
               className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
                 activeTab === "telemetry"
-                  ? "bg-orange-600 text-white shadow-md shadow-orange-950/40"
+                  ? "bg-orange-600 text-white shadow-md shadow-orange-500/20"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -248,7 +248,7 @@ export default function DiagnosticsPage() {
               onClick={() => setActiveTab("events")}
               className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer flex items-center gap-1.5 ${
                 activeTab === "events"
-                  ? "bg-orange-600 text-white shadow-md shadow-orange-950/40"
+                  ? "bg-orange-600 text-white shadow-md shadow-orange-500/20"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -262,8 +262,8 @@ export default function DiagnosticsPage() {
               onClick={() => setActiveUnit("EX-04")}
               className={`px-3 py-1.5 rounded-lg border transition cursor-pointer flex items-center gap-1.5 ${
                 activeUnit === "EX-04"
-                  ? "bg-red-100 border-red-300 text-red-800 font-bold shadow-xs"
-                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  ? "bg-red-100 border-red-300 text-red-800 font-bold shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]"
+                  : "bg-white border-slate-200/70 text-slate-600 hover:bg-slate-50"
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
@@ -274,8 +274,8 @@ export default function DiagnosticsPage() {
               onClick={() => setActiveUnit("EX-12")}
               className={`px-3 py-1.5 rounded-lg border transition cursor-pointer flex items-center gap-1.5 ${
                 activeUnit === "EX-12"
-                  ? "bg-amber-100 border-amber-300 text-amber-900 font-bold shadow-xs"
-                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  ? "bg-amber-100 border-amber-300 text-amber-900 font-bold shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]"
+                  : "bg-white border-slate-200/70 text-slate-600 hover:bg-slate-50"
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-amber-500"></span>
@@ -285,39 +285,33 @@ export default function DiagnosticsPage() {
         </div>
       </div>
 
-      {/* 2. Top Summary KPI Row (DYNAMICALLY BOUND TO CURRENT UNIT) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 font-mono text-xs">
-        <div className="bg-white border border-slate-200 p-3.5 rounded-xl shadow-xs">
-          <div className="text-[10px] text-slate-500 uppercase">Target Asset</div>
-          <div className="text-sm font-bold text-slate-900 mt-1">{curr.model}</div>
+      {/* 2. Top Summary KPI Row (4 Streamlined Cards) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 font-sans text-xs">
+        <div className="bg-white border border-slate-200/70 p-3.5 rounded-xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
+          <div className="text-[10px] text-slate-500 uppercase font-bold">TARGET UNIT</div>
+          <div className="text-sm font-bold text-slate-900 mt-1">{curr.id} &bull; {curr.model}</div>
           <div className="text-[10px] text-slate-500 mt-0.5">Sn: {curr.sn}</div>
         </div>
 
-        <div className="bg-white border border-slate-200 p-3.5 rounded-xl shadow-xs">
-          <div className="text-[10px] text-slate-500 uppercase">Rock Formation</div>
-          <div className="text-sm font-bold text-orange-600 mt-1">{curr.rock}</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">{curr.rockMpa}</div>
-        </div>
-
-        <div className="bg-white border border-slate-200 p-3.5 rounded-xl shadow-xs">
-          <div className="text-[10px] text-slate-500 uppercase">Anomaly Score</div>
+        <div className="bg-white border border-slate-200/70 p-3.5 rounded-xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
+          <div className="text-[10px] text-slate-500 uppercase font-bold">ANOMALY RECONSTRUCTION</div>
           <div className="text-sm font-bold text-red-600 mt-1">{curr.anomalyScore}</div>
-          <div className="text-[10px] text-red-600/80 mt-0.5 font-bold">{curr.anomalyBadge}</div>
+          <div className="text-[10px] text-red-600/80 mt-0.5 font-bold">{curr.anomalyBadge} (Threshold 0.0014)</div>
         </div>
 
-        <div className="bg-white border border-slate-200 p-3.5 rounded-xl shadow-xs">
-          <div className="text-[10px] text-slate-500 uppercase">Accelerated Wear</div>
-          <div className="text-sm font-bold text-red-500 mt-1">{curr.accelWear}</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">{curr.wearDelta}</div>
+        <div className="bg-white border border-slate-200/70 p-3.5 rounded-xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
+          <div className="text-[10px] text-slate-500 uppercase font-bold">CMSI STRESS INDEX</div>
+          <div className="text-sm font-bold text-slate-900 mt-1">{curr.cmsi} <span className="text-xs font-normal text-slate-500">/ 100</span></div>
+          <div className="text-[10px] text-slate-500 mt-0.5">{curr.accelWear} ({curr.wearDelta})</div>
         </div>
 
-        <div className={`border p-3.5 rounded-xl col-span-2 sm:col-span-1 shadow-xs ${
+        <div className={`border p-3.5 rounded-xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] ${
           curr.cmsi >= 90 ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"
         }`}>
           <div className={`text-[10px] uppercase font-bold ${curr.cmsi >= 90 ? "text-red-600" : "text-amber-700"}`}>
-            Remaining Life (RUL)
+            REMAINING USEFUL LIFE (RUL)
           </div>
-          <div className={`text-base font-black mt-1 ${curr.cmsi >= 90 ? "text-red-800" : "text-amber-900"}`}>
+          <div className={`text-base font-bold mt-1 ${curr.cmsi >= 90 ? "text-red-800" : "text-amber-900"}`}>
             {curr.rul}
           </div>
           <div className={`text-[10px] font-semibold ${curr.cmsi >= 90 ? "text-red-700" : "text-amber-800"}`}>
@@ -332,8 +326,8 @@ export default function DiagnosticsPage() {
           {/* Left Column (7 cols) */}
           <div className="xl:col-span-7 space-y-5">
             {/* 4-Stage Reasoning Pipeline */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg space-y-3 font-mono text-xs">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <div className="bg-white border border-slate-200/70 rounded-2xl p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] space-y-3 font-sans text-xs">
+              <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
                 <span className="font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <Layers className="w-4 h-4 text-orange-500" />
                   Deterministic Reasoning Chain ({curr.id})
@@ -344,13 +338,13 @@ export default function DiagnosticsPage() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-                <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                <div className="bg-slate-50 border border-slate-200/70 p-3 rounded-xl">
                   <div className="text-[9px] text-slate-500 uppercase">Stage 01</div>
                   <div className="text-xs font-bold text-slate-900 mt-1">Signal Extraction</div>
                   <div className="text-[10px] text-sky-600 mt-1 font-sans">{curr.stage1}</div>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                <div className="bg-slate-50 border border-slate-200/70 p-3 rounded-xl">
                   <div className="text-[9px] text-slate-500 uppercase">Stage 02</div>
                   <div className="text-xs font-bold text-slate-900 mt-1">Lithology 1D-CNN</div>
                   <div className="text-[10px] text-orange-600 mt-1 font-sans">{curr.stage2}</div>
@@ -371,13 +365,13 @@ export default function DiagnosticsPage() {
             </div>
 
             {/* Root-Cause Mechanical Summary */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg space-y-3 font-sans">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2 font-mono text-xs">
+            <div className="bg-white border border-slate-200/70 rounded-2xl p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] space-y-3 font-sans">
+              <div className="flex items-center justify-between border-b border-slate-200/70 pb-2 font-sans text-xs">
                 <span className="font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <ShieldAlert className={`w-4 h-4 ${curr.cmsi >= 90 ? "text-red-600" : "text-amber-600"}`} />
                   Root-Cause Mechanical Analysis
                 </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border font-mono ${
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border font-sans ${
                   curr.cmsi >= 90 ? "bg-red-100 border-red-200 text-red-700" : "bg-amber-100 border-amber-200 text-amber-800"
                 }`}>
                   {curr.cmsi >= 90 ? "CRITICAL FAULT" : "ELEVATED RISK"}
@@ -386,8 +380,8 @@ export default function DiagnosticsPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 {curr.rootCauses.map((rc, idx) => (
-                  <div key={idx} className={`p-3 rounded-xl border ${rc.crit ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200"}`}>
-                    <div className={`font-bold text-[11px] uppercase font-mono ${rc.crit ? "text-red-700" : "text-slate-800"}`}>
+                  <div key={idx} className={`p-3 rounded-xl border ${rc.crit ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200/70"}`}>
+                    <div className={`font-bold text-[11px] uppercase font-sans ${rc.crit ? "text-red-700" : "text-slate-800"}`}>
                       {rc.title}
                     </div>
                     <div className="text-slate-800 mt-1 font-medium">{rc.val}</div>
@@ -398,20 +392,20 @@ export default function DiagnosticsPage() {
             </div>
 
             {/* Prescriptive Engineering Directives */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg space-y-3 font-sans">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2 font-mono text-xs">
+            <div className="bg-white border border-slate-200/70 rounded-2xl p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] space-y-3 font-sans">
+              <div className="flex items-center justify-between border-b border-slate-200/70 pb-2 font-sans text-xs">
                 <span className="font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <Wrench className="w-4 h-4 text-orange-600" />
                   Prescriptive Operational Directives ({curr.id})
                 </span>
-                <span className="text-[10px] text-slate-500 font-mono">3 Immediate Actions</span>
+                <span className="text-[10px] text-slate-500 font-sans">3 Immediate Actions</span>
               </div>
 
               <div className="space-y-2 text-xs">
                 {curr.directives.map((dir) => (
-                  <div key={dir.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <div key={dir.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/70">
                     <div className="flex items-center gap-3">
-                      <span className="w-5 h-5 rounded-md bg-orange-100 text-orange-700 font-mono font-bold text-[10px] flex items-center justify-center border border-orange-200">
+                      <span className="w-5 h-5 rounded-md bg-orange-100 text-orange-700 font-sans font-bold text-[10px] flex items-center justify-center border border-orange-200">
                         {dir.id}
                       </span>
                       <div>
@@ -419,7 +413,7 @@ export default function DiagnosticsPage() {
                         <div className="text-[11px] text-slate-500">{dir.desc}</div>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded border ${
+                    <span className={`text-[10px] font-sans font-semibold px-2 py-0.5 rounded border ${
                       dir.role === "Operator" 
                         ? "bg-blue-50 border-blue-200 text-blue-700" 
                         : dir.role === "Maintenance"
@@ -433,10 +427,10 @@ export default function DiagnosticsPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-2 flex flex-wrap items-center gap-3 font-mono text-xs">
+              <div className="pt-2 flex flex-wrap items-center gap-3 font-sans text-xs">
                 <button
                   onClick={() => openWorkOrder(curr.id)}
-                  className="px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl transition shadow-md shadow-orange-950/40 cursor-pointer flex items-center gap-2"
+                  className="px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl transition shadow-md shadow-orange-500/20 cursor-pointer flex items-center gap-2"
                 >
                   <Wrench className="w-4 h-4" />
                   Dispatch Work Order ({curr.id})
@@ -444,7 +438,7 @@ export default function DiagnosticsPage() {
 
                 <button
                   onClick={() => alert(`Telemetry Report for ${curr.id} exported successfully!`)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl transition border border-slate-200 cursor-pointer flex items-center gap-2"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl transition border border-slate-200/70 cursor-pointer flex items-center gap-2"
                 >
                   <FileText className="w-4 h-4 text-slate-500" />
                   Export Telemetry Report
@@ -456,8 +450,8 @@ export default function DiagnosticsPage() {
           {/* Right Column (5 cols): Oscilloscope & Live Gauges */}
           <div className="xl:col-span-5 space-y-5">
             {/* Oscilloscope */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg font-mono text-xs space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+            <div className="bg-white border border-slate-200/70 rounded-2xl p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] font-sans text-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200/70 pb-2.5">
                 <div>
                   <div className="text-slate-900 font-bold text-sm flex items-center gap-2">
                     <Activity className={`w-4 h-4 ${curr.cmsi >= 90 ? "text-red-600" : "text-amber-600"}`} />
@@ -472,7 +466,7 @@ export default function DiagnosticsPage() {
                 </span>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 relative overflow-hidden">
+              <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-3 relative overflow-hidden">
                 <div className="absolute top-2 right-3 text-[10px] text-slate-500">
                   BANDWIDTH: 0 - 200 Hz
                 </div>
@@ -517,7 +511,7 @@ export default function DiagnosticsPage() {
 
                   <circle cx={curr.spikeX} cy={curr.spikeY} r="4" fill={curr.cmsi >= 90 ? "#EF4444" : "#F59E0B"} />
                   <circle cx={curr.spikeX} cy={curr.spikeY} r="8" fill="none" stroke={curr.cmsi >= 90 ? "#EF4444" : "#F59E0B"} strokeWidth="1.5" className="animate-ping" />
-                  <text x={curr.spikeX - 45} y={curr.spikeY - 8} fill={curr.cmsi >= 90 ? "#DC2626" : "#D97706"} fontSize="10" fontWeight="bold" fontFamily="monospace">
+                  <text x={curr.spikeX - 45} y={curr.spikeY - 8} fill={curr.cmsi >= 90 ? "#DC2626" : "#D97706"} fontSize="10" fontWeight="bold" fontFamily="Poppins, Montserrat, sans-serif">
                     {curr.fftPeakText}
                   </text>
                 </svg>
@@ -533,8 +527,8 @@ export default function DiagnosticsPage() {
             </div>
 
             {/* Live Sensor Stream Gauges */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-lg font-mono text-xs space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <div className="bg-white border border-slate-200/70 rounded-2xl p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] font-sans text-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
                 <span className="font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <Activity className="w-4 h-4 text-emerald-600" />
                   Live Sensor Stream ({curr.id})
@@ -580,22 +574,22 @@ export default function DiagnosticsPage() {
               </div>
 
               {/* Kinematics */}
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 mt-2">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 mt-2">
                 <div className="text-[10px] text-slate-500 uppercase font-bold mb-2">IMU Kinematics Readout</div>
                 <div className="grid grid-cols-4 gap-2 text-center">
-                  <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs">
+                  <div className="bg-white p-2 rounded-lg border border-slate-200/70 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
                     <div className="text-[10px] text-slate-500">Boom</div>
                     <div className="font-bold text-slate-900 text-xs mt-0.5">{curr.boom}°</div>
                   </div>
-                  <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs">
+                  <div className="bg-white p-2 rounded-lg border border-slate-200/70 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
                     <div className="text-[10px] text-slate-500">Arm</div>
                     <div className="font-bold text-slate-900 text-xs mt-0.5">{curr.arm}m</div>
                   </div>
-                  <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs">
+                  <div className="bg-white p-2 rounded-lg border border-slate-200/70 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
                     <div className="text-[10px] text-slate-500">Bucket</div>
                     <div className="font-bold text-slate-900 text-xs mt-0.5">{curr.bucket}°</div>
                   </div>
-                  <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs">
+                  <div className="bg-white p-2 rounded-lg border border-slate-200/70 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
                     <div className="text-[10px] text-slate-500">Slew</div>
                     <div className="font-bold text-slate-900 text-xs mt-0.5">{curr.slew} rpm</div>
                   </div>
@@ -606,10 +600,10 @@ export default function DiagnosticsPage() {
         </div>
       ) : (
         /* Tab 2: Anomaly Event Feed */
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden font-mono text-xs">
-          <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="bg-white border border-slate-200/70 rounded-2xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] overflow-hidden font-sans text-xs">
+          <div className="p-5 border-b border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-base font-black text-slate-900 font-sans">
+              <h2 className="text-base font-bold text-slate-900 font-sans">
                 Fleet Anomaly Event Feed
               </h2>
               <div className="text-xs text-slate-500 font-sans mt-0.5">
@@ -617,11 +611,11 @@ export default function DiagnosticsPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200/70">
               <button
                 onClick={() => setEventFilter("all")}
                 className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                  eventFilter === "all" ? "bg-white text-slate-900 font-bold shadow-xs border border-slate-200" : "text-slate-500 hover:text-slate-800"
+                  eventFilter === "all" ? "bg-white text-slate-900 font-bold shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] border border-slate-200/70" : "text-slate-500 hover:text-slate-800"
                 }`}
               >
                 All (6)
@@ -655,7 +649,7 @@ export default function DiagnosticsPage() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-slate-700">
-              <thead className="bg-slate-100 text-[10px] text-slate-500 uppercase tracking-wider border-b border-slate-200">
+              <thead className="bg-slate-100 text-[10px] text-slate-500 uppercase tracking-wider border-b border-slate-200/70">
                 <tr>
                   <th className="py-3.5 px-6">Timestamp</th>
                   <th className="py-3.5 px-6">Machine</th>
@@ -681,7 +675,7 @@ export default function DiagnosticsPage() {
                       {log.subsystem}
                     </td>
 
-                    <td className="py-4 px-6 font-mono text-[11px] text-slate-500">
+                    <td className="py-4 px-6 font-sans text-[11px] text-slate-500">
                       {log.description}
                     </td>
 
@@ -707,7 +701,7 @@ export default function DiagnosticsPage() {
                       {log.severity === "critical" ? (
                         <button
                           onClick={() => openWorkOrder(log.unit)}
-                          className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition shadow-md shadow-orange-950/40 cursor-pointer inline-flex items-center gap-1.5 text-xs"
+                          className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition shadow-md shadow-orange-500/20 cursor-pointer inline-flex items-center gap-1.5 text-xs"
                         >
                           <Wrench className="w-3.5 h-3.5" />
                           Work Order
@@ -715,7 +709,7 @@ export default function DiagnosticsPage() {
                       ) : (
                         <button
                           onClick={() => openWorkOrder(log.unit)}
-                          className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg border border-slate-200 transition cursor-pointer inline-flex items-center gap-1.5 text-xs"
+                          className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg border border-slate-200/70 transition cursor-pointer inline-flex items-center gap-1.5 text-xs"
                         >
                           Details
                         </button>

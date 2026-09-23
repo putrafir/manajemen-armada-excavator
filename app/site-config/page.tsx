@@ -113,18 +113,18 @@ export default function SiteConfigPage() {
       {/* 1. Header */}
       <div className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="text-xs font-mono font-bold tracking-wider text-slate-400 uppercase mb-1">
+          <div className="text-xs font-sans font-bold tracking-wider text-slate-400 uppercase mb-1">
             FLEET CONFIGURATION &bull; SITE CONFIGURATION
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             Site &amp; Sector Configuration
           </h1>
-          <p className="text-xs text-slate-500 font-mono mt-1">
+          <p className="text-xs text-slate-500 font-sans mt-1">
             Manage open-cut pit geometries, bench datum elevations, and excavator fleet allocations across active mining sectors.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 font-mono text-xs">
+        <div className="flex items-center gap-3 font-sans text-xs">
           <button className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition cursor-pointer">
             Import GeoTIFF / Mine Plan
           </button>
@@ -136,7 +136,7 @@ export default function SiteConfigPage() {
       </div>
 
       {/* 2. Top Banner Telemetry Metrics */}
-      <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4 text-xs font-mono">
+      <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4 text-xs font-sans">
         <div className="flex items-center gap-2 text-orange-700 font-bold">
           <span className="w-2 h-2 rounded-full bg-orange-600 animate-pulse"></span>
           LEO MESH ACTIVE (Pilbara Hub 04)
@@ -149,22 +149,22 @@ export default function SiteConfigPage() {
       </div>
 
       {/* 3. Four KPI Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 font-mono">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 font-sans">
         <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
           <div className="text-[11px] text-slate-400 uppercase font-bold">Active Mining Sites</div>
-          <div className="text-3xl font-black text-slate-900 my-1">3 <span className="text-sm font-normal text-slate-500">Operations</span></div>
+          <div className="text-3xl font-bold text-slate-900 my-1">3 <span className="text-sm font-normal text-slate-500">Operations</span></div>
           <div className="text-[11px] text-slate-500">Pilbara &bull; Newman &bull; Goldfields <strong className="text-emerald-600">(100% Up)</strong></div>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
           <div className="text-[11px] text-slate-400 uppercase font-bold">Configured Sectors</div>
-          <div className="text-3xl font-black text-slate-900 my-1">8 <span className="text-sm font-normal text-slate-500">Pit Sectors</span></div>
+          <div className="text-3xl font-bold text-slate-900 my-1">8 <span className="text-sm font-normal text-slate-500">Pit Sectors</span></div>
           <div className="text-[11px] text-slate-500">6 Active Extraction &bull; 2 Haul/Strip</div>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
           <div className="text-[11px] text-slate-400 uppercase font-bold">Excavator Allocation</div>
-          <div className="text-3xl font-black text-slate-900 my-1">48 / 52 <span className="text-sm font-normal text-slate-500">Units</span></div>
+          <div className="text-3xl font-bold text-slate-900 my-1">48 / 52 <span className="text-sm font-normal text-slate-500">Units</span></div>
           <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden mt-2">
             <div className="bg-orange-600 h-full rounded-full" style={{ width: "92%" }}></div>
           </div>
@@ -172,13 +172,13 @@ export default function SiteConfigPage() {
 
         <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
           <div className="text-[11px] text-slate-400 uppercase font-bold">Geotechnical Monitoring</div>
-          <div className="text-3xl font-black text-emerald-600 my-1">100% <span className="text-sm font-normal text-slate-500">Synced</span></div>
+          <div className="text-3xl font-bold text-emerald-600 my-1">100% <span className="text-sm font-normal text-slate-500">Synced</span></div>
           <div className="text-[11px] text-slate-500">In-situ Telemetry &bull; Latency: <strong>32ms</strong></div>
         </div>
       </div>
 
       {/* 4. Sector Filter Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-4 font-sans text-xs">
         <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg">
           <button className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded shadow-xs">All Sectors (8)</button>
           <button className="px-3 py-1.5 text-slate-700 hover:text-slate-900">Pilbara Iron (3)</button>
@@ -189,7 +189,7 @@ export default function SiteConfigPage() {
       </div>
 
       {/* 5. Sector Cards Grid (Matching Site Configuration.png) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 font-mono text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 font-sans text-xs">
         {sectors.map((sec, idx) => (
           <div key={idx} className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs flex flex-col justify-between space-y-4">
             <div>
