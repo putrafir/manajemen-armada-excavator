@@ -371,11 +371,7 @@ export default function FleetMapPage() {
                   }`}>
                   {currentUnit.badge}
                 </span>
-                {currentUnit.isLive && (
-                  <span className="px-1.5 py-0.5 rounded bg-orange-100 border border-orange-200 text-orange-700 text-[9px] font-bold font-sans">
-                    LIVE SENSOR
-                  </span>
-                )}
+
               </div>
               <div className="text-xs text-slate-500 font-sans mt-1">
                 {currentUnit.model} • Sn: {currentUnit.sn}
@@ -419,7 +415,7 @@ export default function FleetMapPage() {
               <span className="text-slate-500 uppercase tracking-wider">Excavator Kinematics Readout</span>
               <span className="text-emerald-700 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                {currentUnit.isLive ? "Live IMU (Echa ESP32)" : "Pit Telemetry Loop"}
+                {currentUnit.isLive ? "High-Frequency IMU Telemetry" : "Pit Telemetry Loop"}
               </span>
             </div>
 

@@ -252,15 +252,13 @@ export default function AnalyticsPage() {
             </div>
 
             <div className="space-y-3">
-              {/* EX-04 (DYNAMIC BINDING TO ECHA LIVE SENSOR) */}
+              {/* EX-04 (DYNAMIC BINDING TO LIVE TELEMETRY) */}
               <div className={`p-3.5 rounded-xl border ${ex04Bg}`}>
                 <div className="flex justify-between items-baseline">
                   <div className="flex items-center gap-2">
                     <strong className="text-slate-900 text-sm">EX-04</strong>
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${ex04BadgeBg}`}>{ex04Badge}</span>
-                    <span className="text-[9px] px-1 py-0.2 rounded bg-orange-100 text-orange-700 font-bold border border-orange-200">
-                      LIVE
-                    </span>
+
                   </div>
                   <span className={`font-bold text-sm ${ex04Color}`}>{ex04DeltaHrs} Wear</span>
                 </div>

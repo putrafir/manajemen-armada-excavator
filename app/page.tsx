@@ -32,7 +32,7 @@ export default function Dashboard() {
     {
       id: "EX-04",
       isLiveSimulation: true,
-      model: "XCMG XE4000 (Live ESP32)",
+      model: "XCMG XE4000 Mining Shovel",
       operator: "M. Kowalski",
       cmsi: ex04Cmsi,
       primaryAnomaly: isEx04Critical 
@@ -120,7 +120,7 @@ export default function Dashboard() {
             Operations Overview & Priority Queue
           </h1>
           <div className="text-xs text-slate-500 font-sans mt-1">
-            Active Fleet • Live MQTT Sync (Echa ESP32)
+            Active Fleet • Real-Time Telemetry Mesh
           </div>
         </div>
 
@@ -261,11 +261,7 @@ export default function Dashboard() {
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-slate-900 font-sans text-sm">{row.id}</span>
-                      {row.id === "EX-04" && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 border border-orange-200">
-                          LIVE SENSOR
-                        </span>
-                      )}
+
                     </div>
                     <div className="text-slate-500 text-[11px]">{row.model} • {row.operator}</div>
                   </td>

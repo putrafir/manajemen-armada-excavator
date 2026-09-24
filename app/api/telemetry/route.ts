@@ -13,7 +13,7 @@ let telemetryState: any = {
   last_updated: new Date().toISOString(),
   units: {
     "EX-04": {
-      model: "XCMG XE4000 Mining Shovel (Live: Echa ESP32)",
+      model: "XCMG XE4000 Mining Shovel",
       serial: "XCMG-8829-PX",
       operator: "M. Kowalski",
       status: "CRITICAL",
