@@ -2,6 +2,54 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 
+export type PitScope = "ALL" | "pit-4" | "pit-2" | "pit-1" | "pit-3";
+
+export interface PitScopeInfo {
+  id: PitScope;
+  name: string;
+  code: string;
+  elevation: string;
+  supervisor: string;
+}
+
+export const PIT_SCOPES: PitScopeInfo[] = [
+  { 
+    id: "ALL", 
+    name: "Site-Wide Fleet Overview (All Pits)", 
+    code: "GLOBAL-FLEET", 
+    elevation: "Consolidated RL", 
+    supervisor: "Dr. V. Aris (Superintendent)" 
+  },
+  { 
+    id: "pit-4", 
+    name: "Pit 4 — North Extraction Basin", 
+    code: "PIL-PIT-04", 
+    elevation: "-140.40m RL Floor", 
+    supervisor: "M. Kowalski (Foreman)" 
+  },
+  { 
+    id: "pit-2", 
+    name: "Pit 2 — Central Anthracite Basin", 
+    code: "PIL-PIT-02", 
+    elevation: "-45.20m RL Bench", 
+    supervisor: "R. Chen (Foreman)" 
+  },
+  { 
+    id: "pit-1", 
+    name: "Pit 1 — North Ridge Overburden", 
+    code: "PIL-PIT-01", 
+    elevation: "+80.20m RL Crest", 
+    supervisor: "T. Lindqvist (Foreman)" 
+  },
+  { 
+    id: "pit-3", 
+    name: "Pit 3 — Drainage Sump & Floor", 
+    code: "PIL-PIT-03", 
+    elevation: "-210.40m RL Sump", 
+    supervisor: "G. Rossi (Foreman)" 
+  },
+];
+
 export interface Kinematics {
   boom_angle: number;
   arm_reach: number;
@@ -44,6 +92,8 @@ interface TelemetryContextType {
   isStreaming: boolean;
   toggleStreaming: () => void;
   refreshTelemetry: () => Promise<void>;
+  pitScope: PitScope;
+  setPitScope: (scope: PitScope) => void;
 }
 
 const TelemetryContext = createContext<TelemetryContextType | undefined>(undefined);
@@ -51,6 +101,28 @@ const TelemetryContext = createContext<TelemetryContextType | undefined>(undefin
 export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   const [telemetry, setTelemetry] = useState<TelemetryState | null>(null);
   const [isStreaming, setIsStreaming] = useState(true);
+  const [pitScope, setPitScopeState] = useState<PitScope>("ALL");
+
+  // Persist scope in localStorage for consistent session experience
+  useEffect(() => {
+    try {
+      const savedScope = localStorage.getItem("terracortex_pit_scope") as PitScope | null;
+      if (savedScope && PIT_SCOPES.some(s => s.id === savedScope)) {
+        setPitScopeState(savedScope);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const setPitScope = (scope: PitScope) => {
+    setPitScopeState(scope);
+    try {
+      localStorage.setItem("terracortex_pit_scope", scope);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchTelemetry = async () => {
     try {
@@ -68,7 +140,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
     fetchTelemetry();
   }, []);
 
-  // Poll backend /api/telemetry periodically so external streams (Echa / MQTT Bridge) are reflected instantly
+  // Poll backend /api/telemetry periodically so external streams are reflected instantly
   useEffect(() => {
     if (!isStreaming) return;
 
@@ -88,6 +160,8 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
         isStreaming,
         toggleStreaming,
         refreshTelemetry: fetchTelemetry,
+        pitScope,
+        setPitScope,
       }}
     >
       {children}

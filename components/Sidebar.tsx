@@ -9,11 +9,17 @@ import {
   TrendingUp, 
   Cpu,
   Hexagon,
-  HardHat
+  HardHat,
+  Sliders,
+  Radio
 } from "lucide-react";
+import { useTelemetry, PIT_SCOPES } from "@/context/TelemetryContext";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { pitScope } = useTelemetry();
+
+  const currentScopeObj = PIT_SCOPES.find(s => s.id === pitScope) || PIT_SCOPES[0];
 
   const navItems = [
     { label: "Fleet Command Center", href: "/", icon: LayoutDashboard },
@@ -21,6 +27,7 @@ export default function Sidebar() {
     { label: "Perception & DTC Forensics", href: "/diagnostics", icon: Cpu },
     { label: "Maintenance CMMS Hub", href: "/analytics", icon: TrendingUp },
     { label: "Fleet & Site Master Registry", href: "/registry", icon: HardHat },
+    { label: "Site & Sector Parameters", href: "/site-config", icon: Sliders },
   ];
 
   return (
@@ -70,17 +77,27 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Operator Status Footer */}
-      <div className="p-3 m-3.5 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-orange-100/80 border border-orange-200/60 flex items-center justify-center text-xs font-bold text-orange-700">
-          VA
-        </div>
-        <div className="overflow-hidden">
-          <div className="text-xs font-semibold text-slate-800 truncate">Dr. V. Aris</div>
-          <div className="text-[10px] text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            Pit 4 Operations
+      {/* Operator Status Footer (Enterprise Superintendent Role) */}
+      <div className="p-3 m-3.5 rounded-xl bg-slate-50/90 border border-slate-200/80 space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-orange-100 border border-orange-200/70 flex items-center justify-center text-xs font-bold text-orange-700 shadow-2xs">
+            VA
           </div>
+          <div className="overflow-hidden">
+            <div className="text-xs font-bold text-slate-900 truncate">Dr. V. Aris</div>
+            <div className="text-[10px] text-slate-500 font-medium truncate">
+              Fleet Reliability Supt.
+            </div>
+          </div>
+        </div>
+
+        {/* Dynamic Operational Scope Status */}
+        <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px]">
+          <span className="text-slate-400 uppercase font-semibold">Active Domain:</span>
+          <span className="font-semibold text-orange-700 truncate max-w-[125px] flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+            {pitScope === "ALL" ? "Site-Wide Fleet" : currentScopeObj.code}
+          </span>
         </div>
       </div>
     </aside>

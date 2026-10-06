@@ -156,6 +156,21 @@ let telemetryState: any = {
 };
 
 export async function GET() {
+  // Apply realistic physical sensor micro-jitter when stream is online
+  const now = new Date();
+  const jitterP = (Math.sin(now.getTime() / 2500) * 0.4).toFixed(1);
+  const jitterT = (Math.cos(now.getTime() / 3200) * 0.3).toFixed(1);
+  const jitterF = Math.round(Math.sin(now.getTime() / 1800) * 2.5);
+  const latencyJitter = Math.round(41 + Math.sin(now.getTime() / 4000) * 4);
+
+  if (telemetryState.units["EX-04"]) {
+    telemetryState.units["EX-04"].hydraulic_pressure_mpa = Number((34.8 + Number(jitterP)).toFixed(1));
+    telemetryState.units["EX-04"].manifold_temp_c = Number((96.4 + Number(jitterT)).toFixed(1));
+    telemetryState.units["EX-04"].cavitation_freq_hz = 142 + jitterF;
+  }
+  telemetryState.latency_ms = latencyJitter;
+  telemetryState.last_updated = now.toISOString();
+
   return NextResponse.json(telemetryState);
 }
 

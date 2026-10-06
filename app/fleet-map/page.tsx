@@ -61,12 +61,34 @@ export default function FleetMapPage() {
   const [selectedUnitId, setSelectedUnitId] = useState<string>("EX-04");
   const [dispatchAlert, setDispatchAlert] = useState<string | null>(null);
 
+  // Synchronize active pit and selected machine from URL query
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const p = params.get("pit");
+      if (p) setActivePitId(p);
+      const u = params.get("unit");
+      if (u) setSelectedUnitId(u);
+    }
+  }, []);
+
   // Layer toggles
   const [layerThermal, setLayerThermal] = useState(false);
   const [layerCavitation, setLayerCavitation] = useState(true);
   const [layerContours, setLayerContours] = useState(true);
 
-  const { telemetry } = useTelemetry();
+  const { telemetry, pitScope, setPitScope } = useTelemetry();
+
+  // Sync with global pit scope if selected from header
+  React.useEffect(() => {
+    if (pitScope && pitScope !== "ALL" && pits[pitScope]) {
+      setActivePitId(pitScope);
+      const targetPit = pits[pitScope];
+      if (targetPit && targetPit.units.length > 0) {
+        setSelectedUnitId(targetPit.units[0].id);
+      }
+    }
+  }, [pitScope]);
   const ex04Live = telemetry?.units["EX-04"];
   const ex04Cmsi = ex04Live?.cmsi ?? 94.0;
   const ex04Status: "critical" | "warning" | "nominal" = ex04Cmsi >= 90 ? "critical" : ex04Cmsi >= 70 ? "warning" : "nominal";
@@ -311,6 +333,7 @@ export default function FleetMapPage() {
 
   const handlePitChange = (pitId: string) => {
     setActivePitId(pitId);
+    setPitScope(pitId as any);
     const targetPit = pits[pitId];
     if (targetPit && targetPit.units.length > 0) {
       setSelectedUnitId(targetPit.units[0].id);
@@ -718,7 +741,7 @@ export default function FleetMapPage() {
 
             {/* Link to Deep-Dive Diagnostics */}
             <Link
-              href="/diagnostics"
+              href={`/diagnostics?unit=${currentUnit.id}`}
               className="w-full mt-1 p-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl transition shadow-md shadow-orange-500/20 cursor-pointer flex items-center justify-center gap-2 text-xs"
             >
               <Activity className="w-4 h-4" />

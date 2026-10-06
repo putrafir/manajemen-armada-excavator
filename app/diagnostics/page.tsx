@@ -332,11 +332,40 @@ export default function DiagnosticsPage() {
   const [fleetDrawerOpen, setFleetDrawerOpen] = useState(false);
   const [eventFilter, setEventFilter] = useState<"all" | "critical" | "high" | "resolved">("all");
 
-  // Modals
+  // Modals & Navigation sync
   const [modalOpen, setModalOpen] = useState(false);
   const [modalUnit, setModalUnit] = useState("EX-04");
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotUnit, setCopilotUnit] = useState("EX-04");
+  const [copilotPrefill, setCopilotPrefill] = useState<any>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [customAssets, setCustomAssets] = useState<any[]>([]);
+
+  // Synchronize unit from URL query param (e.g. /diagnostics?unit=EX-12)
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const u = params.get("unit");
+      if (u) {
+        setActiveUnitId(u);
+      }
+    }
+  }, []);
+
+  // Ingest custom provisioned excavators from registry
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem("terracortex_registered_assets");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setCustomAssets(parsed);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const openWorkOrder = (unit: string) => {
     setModalUnit(unit);
@@ -351,7 +380,7 @@ export default function DiagnosticsPage() {
   // Sync live telemetry for EX-04 if present
   const ex04Live = telemetry?.units["EX-04"];
   const fleetList = useMemo(() => {
-    return ALL_FLEET_UNITS.map(u => {
+    const list = ALL_FLEET_UNITS.map(u => {
       if (u.id === "EX-04" && ex04Live) {
         return {
           ...u,
@@ -364,7 +393,31 @@ export default function DiagnosticsPage() {
       }
       return u;
     });
-  }, [ex04Live]);
+
+    // Append custom registered assets
+    customAssets.forEach(ca => {
+      if (!list.some(u => u.id === ca.id)) {
+        list.push({
+          id: ca.id,
+          model: ca.model,
+          sn: ca.vin || "VIN-CUSTOM",
+          site: ca.site || "Active Mining Sector",
+          rock: "Overburden Sandstone",
+          rockMpa: 85,
+          cmsi: 42.0,
+          status: "nominal",
+          component: "OEM Baseline Powertrain",
+          faultSummary: "Commissioned & synchronized with Edge Gateway",
+          peakHz: 18,
+          pressureMpa: 21.4,
+          tempC: 72.0,
+          hours: ca.hours || 0
+        });
+      }
+    });
+
+    return list;
+  }, [ex04Live, customAssets]);
 
   // Filtered fleet list for selector
   const filteredFleet = useMemo(() => {
@@ -1283,20 +1336,44 @@ export default function DiagnosticsPage() {
         </div>
       )}
 
+      {/* Toast Alert Banner */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 text-xs animate-slideUp">
+          <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="font-bold text-white">Work Order Published</div>
+            <div className="text-slate-300 text-[11px] mt-0.5">{toastMessage}</div>
+          </div>
+          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white ml-2">✕</button>
+        </div>
+      )}
+
       {/* Work Order Modal */}
       <WorkOrderModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          setCopilotPrefill(null);
+        }}
         unitId={modalUnit}
+        initialValues={copilotPrefill || undefined}
       />
 
       {/* Copilot Agent Modal */}
       <CopilotAgentModal
         isOpen={copilotOpen}
         onClose={() => setCopilotOpen(false)}
-        onApprove={(action) => {
-          setCopilotOpen(false);
-          openWorkOrder(copilotUnit);
+        onApprove={(action, payload) => {
+          if (action === "AUTO_DISPATCHED") {
+            setToastMessage(`Copilot auto-dispatched official Work Order for ${copilotUnit}!`);
+            setTimeout(() => setToastMessage(null), 5000);
+          } else if (action === "EDIT_MANUAL") {
+            setCopilotPrefill(payload);
+            setModalUnit(copilotUnit);
+            setModalOpen(true);
+          }
         }}
         unitId={copilotUnit}
       />

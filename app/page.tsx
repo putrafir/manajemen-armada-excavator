@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -19,10 +19,27 @@ import { Sparkles } from "lucide-react";
 import { useTelemetry } from "@/context/TelemetryContext";
 
 export default function Dashboard() {
-  const { telemetry, isStreaming } = useTelemetry();
+  const { telemetry, isStreaming, pitScope, setPitScope } = useTelemetry();
   const [modalOpen, setModalOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [targetUnit, setTargetUnit] = useState("EX-04");
+  const [copilotPrefill, setCopilotPrefill] = useState<any>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [customAssetCount, setCustomAssetCount] = useState(0);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("terracortex_registered_assets");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setCustomAssetCount(parsed.length);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const openWorkOrder = (unitId: string) => {
     setTargetUnit(unitId);
@@ -34,9 +51,26 @@ export default function Dashboard() {
   const ex04Pressure = ex04?.hydraulic_pressure_mpa ?? 34.8;
   const isEx04Critical = ex04?.status === "CRITICAL" || ex04Cmsi >= 80;
 
-  const rawQueue = [
+  interface QueueRow {
+    id: string;
+    pitId: "pit-4" | "pit-2" | "pit-1" | "pit-3";
+    pitLabel: string;
+    isLiveSimulation?: boolean;
+    model: string;
+    operator: string;
+    cmsi: number;
+    primaryAnomaly: string;
+    anomalyDetail: string;
+    hours: string;
+    isCritical: boolean;
+    dotColor: string;
+  }
+
+  const rawQueue: QueueRow[] = [
     {
       id: "EX-04",
+      pitId: "pit-4",
+      pitLabel: "Pit 4 Floor (-140m RL)",
       isLiveSimulation: true,
       model: "XCMG XE4000 Mining Shovel",
       operator: "M. Kowalski",
@@ -52,7 +86,22 @@ export default function Dashboard() {
       dotColor: isEx04Critical ? "bg-red-500" : ex04Cmsi >= 70 ? "bg-amber-500" : "bg-emerald-500",
     },
     {
+      id: "EX-08",
+      pitId: "pit-4",
+      pitLabel: "Pit 4 Waste Dump (-60m RL)",
+      model: "XCMG XE1250 Mining Excavator",
+      operator: "S. Tanaka",
+      cmsi: 76.2,
+      primaryAnomaly: "Oil Cooler Radiator Dust Load",
+      anomalyDetail: "Thermal excursion 88.2°C at dump",
+      hours: "8,920",
+      isCritical: false,
+      dotColor: "bg-amber-500",
+    },
+    {
       id: "EX-12",
+      pitId: "pit-2",
+      pitLabel: "Pit 2 West Bench (-45m RL)",
       model: "XCMG XE7000 Mining Excavator",
       operator: "R. Chen",
       cmsi: 83.1,
@@ -63,53 +112,78 @@ export default function Dashboard() {
       dotColor: "bg-amber-500",
     },
     {
+      id: "EX-17",
+      pitId: "pit-2",
+      pitLabel: "Pit 2 Deep Sump (-45m RL)",
+      model: "XCMG XE4000 Mining Shovel",
+      operator: "A. Weber",
+      cmsi: 92.4,
+      primaryAnomaly: "Main Relief Valve Flutter",
+      anomalyDetail: "155 Hz acoustic valve resonance",
+      hours: "3,890",
+      isCritical: true,
+      dotColor: "bg-red-500",
+    },
+    {
       id: "EX-27",
+      pitId: "pit-1",
+      pitLabel: "Pit 1 North Cut (+80m RL)",
       model: "XCMG XE2000 Mining Excavator",
       operator: "J. Botha",
       cmsi: 79.4,
-      primaryAnomaly: "Cylinder Seal Bypass",
-      anomalyDetail: "Flow bypass on boom descent",
+      primaryAnomaly: "Cylinder Flow Bypass Alert",
+      anomalyDetail: "Internal leakage flow 12.4 L/min",
       hours: "5,110",
       isCritical: false,
       dotColor: "bg-amber-500",
     },
     {
-      id: "EX-08",
-      model: "XCMG XE1250 Mining Excavator",
-      operator: "S. Tanaka",
-      cmsi: 58.2,
-      primaryAnomaly: "Hydraulic Thermal Drift",
-      anomalyDetail: "Exchanger efficiency down 8%",
-      hours: "8,920",
-      isCritical: false,
-      dotColor: "bg-emerald-500",
-    },
-    {
-      id: "EX-19",
-      model: "XCMG XE950G Heavy Excavator",
-      operator: "D. Vance",
-      cmsi: 44.0,
-      primaryAnomaly: "Nominal Wear Envelope",
-      anomalyDetail: "Baseline operational wear",
-      hours: "2,350",
-      isCritical: false,
-      dotColor: "bg-emerald-500",
-    },
-    {
       id: "EX-31",
+      pitId: "pit-1",
+      pitLabel: "Pit 1 South Cut (+80m RL)",
       model: "XCMG XE700D Heavy Excavator",
       operator: "K. Mensah",
       cmsi: 38.6,
-      primaryAnomaly: "Nominal Wear Envelope",
+      primaryAnomaly: "Nominal Operating Envelope",
       anomalyDetail: "Baseline operational wear",
       hours: "1,140",
       isCritical: false,
       dotColor: "bg-emerald-500",
     },
+    {
+      id: "EX-33",
+      pitId: "pit-3",
+      pitLabel: "Pit 3 East Highwall (-210m RL)",
+      model: "XCMG XE7000 Mining Excavator",
+      operator: "P. Santos",
+      cmsi: 91.0,
+      primaryAnomaly: "Slew Pinion Gearbox Shock",
+      anomalyDetail: "138 Hz harmonic pinion contact shock",
+      hours: "5,120",
+      isCritical: true,
+      dotColor: "bg-red-500",
+    },
+    {
+      id: "EX-19",
+      pitId: "pit-3",
+      pitLabel: "Pit 3 Overburden (-210m RL)",
+      model: "XCMG XE950G Heavy Excavator",
+      operator: "D. Vance",
+      cmsi: 44.0,
+      primaryAnomaly: "Nominal Operating Envelope",
+      anomalyDetail: "Baseline operational wear",
+      hours: "2,350",
+      isCritical: false,
+      dotColor: "bg-emerald-500",
+    },
   ];
 
-  // Auto-sort queue by CMSI descending so highest stress machine always jumps to Rank #1
-  const queueData = [...rawQueue].sort((a, b) => b.cmsi - a.cmsi).map((item, idx) => ({
+  // Scope filtering & Auto-sort queue by CMSI descending
+  const scopedRaw = pitScope === "ALL" 
+    ? rawQueue 
+    : rawQueue.filter(u => u.pitId === pitScope);
+
+  const queueData = [...scopedRaw].sort((a, b) => b.cmsi - a.cmsi).map((item, idx) => ({
     ...item,
     rank: `#0${idx + 1}`
   }));
@@ -119,14 +193,27 @@ export default function Dashboard() {
       {/* 1. Clean Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200/70 p-5 rounded-2xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
         <div>
-          <div className="text-[10px] font-sans font-bold text-orange-600 uppercase tracking-widest">
-            OPERATIONS DISPATCH &bull; SEVERITY-WEIGHTED QUEUE
+          <div className="text-[10px] font-sans font-bold text-orange-600 uppercase tracking-widest flex items-center gap-2">
+            <span>OPERATIONS DISPATCH &bull; SEVERITY-WEIGHTED QUEUE</span>
+            {pitScope !== "ALL" && (
+              <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded text-[10px] font-bold">
+                Scoped to {pitScope.toUpperCase()}
+              </span>
+            )}
           </div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight mt-0.5">
-            Operations Overview & Priority Queue
+            {pitScope === "ALL" ? "Site-Wide Fleet Overview & Priority Queue" : `Pit ${pitScope.replace("pit-", "")} Operations & Priority Queue`}
           </h1>
-          <div className="text-xs text-slate-500 font-sans mt-1">
-            Active Fleet • Real-Time Telemetry Mesh
+          <div className="text-xs text-slate-500 font-sans mt-1 flex items-center gap-2">
+            <span>{pitScope === "ALL" ? "Global Fleet Monitoring (52 Units across 4 Pits)" : `Focused Pit Domain • Managed by Sector Foreman`}</span>
+            {pitScope !== "ALL" && (
+              <button 
+                onClick={() => setPitScope("ALL")}
+                className="text-orange-600 font-bold hover:underline cursor-pointer"
+              >
+                (Reset to Site-Wide &rarr;)
+              </button>
+            )}
           </div>
         </div>
 
@@ -251,6 +338,7 @@ export default function Dashboard() {
               <tr>
                 <th className="py-3.5 px-6">Rank</th>
                 <th className="py-3.5 px-6">Machine</th>
+                <th className="py-3.5 px-6">Pit Sector</th>
                 <th className="py-3.5 px-6">CMSI Score</th>
                 <th className="py-3.5 px-6">Primary Anomaly</th>
                 <th className="py-3.5 px-6">Hours</th>
@@ -272,9 +360,15 @@ export default function Dashboard() {
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-slate-900 font-sans text-sm">{row.id}</span>
-
                     </div>
                     <div className="text-slate-500 text-[11px]">{row.model} • {row.operator}</div>
+                  </td>
+
+                  {/* Pit Sector */}
+                  <td className="py-4 px-6">
+                    <span className="px-2 py-1 rounded bg-slate-100 text-slate-800 text-[11px] font-semibold border border-slate-200">
+                      {row.pitLabel}
+                    </span>
                   </td>
 
                   {/* CMSI */}
@@ -310,7 +404,7 @@ export default function Dashboard() {
                     {row.cmsi >= 70 ? (
                       <div className="flex items-center justify-end gap-2">
                         <Link
-                          href="/diagnostics"
+                          href={`/diagnostics?unit=${row.id}`}
                           className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition shadow-md shadow-orange-500/20 cursor-pointer inline-flex items-center gap-1.5 text-xs"
                         >
                           <Activity className="w-3.5 h-3.5" />
@@ -340,23 +434,50 @@ export default function Dashboard() {
 
       {/* Work Order Modal */}
 
+      {/* Toast Alert Banner */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 text-xs animate-slideUp">
+          <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="font-bold text-white">Work Order Published</div>
+            <div className="text-slate-300 text-[11px] mt-0.5">{toastMessage}</div>
+          </div>
+          <Link
+            href="/analytics"
+            className="ml-2 px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg text-[11px] transition"
+          >
+            Open Inbox &rarr;
+          </Link>
+          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white ml-1">✕</button>
+        </div>
+      )}
+
       {/* Copilot Modal */}
       <CopilotAgentModal
         isOpen={copilotOpen}
         onClose={() => setCopilotOpen(false)}
         unitId={targetUnit}
-        onApprove={(action) => {
-          console.log("Approved action:", action);
-          setCopilotOpen(false);
-          // Simulate the Copilot auto-filling the Work Order
-          setTimeout(() => setModalOpen(true), 500);
+        onApprove={(action, payload) => {
+          if (action === "AUTO_DISPATCHED") {
+            setToastMessage(`Copilot auto-dispatched official Work Order for ${targetUnit}!`);
+            setTimeout(() => setToastMessage(null), 6000);
+          } else if (action === "EDIT_MANUAL") {
+            setCopilotPrefill(payload);
+            setModalOpen(true);
+          }
         }}
       />
       
       <WorkOrderModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          setCopilotPrefill(null);
+        }}
         unitId={targetUnit}
+        initialValues={copilotPrefill || undefined}
       />
     </div>
   );

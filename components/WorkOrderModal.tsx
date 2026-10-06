@@ -1,31 +1,65 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, Wrench, User, Package, AlertTriangle, CheckCircle2, ShieldAlert } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Wrench, CheckCircle2, AlertTriangle, X, ShieldAlert, Package, Truck, Sparkles } from "lucide-react";
 
 interface WorkOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   unitId?: string;
-  onSuccess?: (newWO: any) => void;
+  initialValues?: {
+    unit?: string;
+    title?: string;
+    category?: string;
+    priority?: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+    partCode?: string;
+    assignedRig?: string;
+    notes?: string;
+  };
 }
 
-export default function WorkOrderModal({ 
-  isOpen, 
-  onClose, 
-  unitId = "EX-04",
-  onSuccess 
-}: WorkOrderModalProps) {
-  const [selectedUnit, setSelectedUnit] = useState(unitId);
-  const [title, setTitle] = useState("Spool Valve Replacement & High-Pressure Hydraulic Flush");
-  const [category, setCategory] = useState("Hydraulic System");
+export default function WorkOrderModal({ isOpen, onClose, unitId, initialValues }: WorkOrderModalProps) {
+  const [targetUnit, setTargetUnit] = useState(unitId || "EX-04");
   const [priority, setPriority] = useState<"CRITICAL" | "HIGH" | "MEDIUM" | "LOW">("CRITICAL");
+  const [title, setTitle] = useState("Hydraulic Spool Valve Cavitation Emergency Flush");
+  const [category, setCategory] = useState("Hydraulic System");
   const [assignedRig, setAssignedRig] = useState("Mobile Rig 3 (Lead: D. Miller)");
   const [partCode, setPartCode] = useState("SAP-PARK-902-KIT");
   const [qty, setQty] = useState(1);
-  const [notes, setNotes] = useState("Cavitation harmonic confirmed via FFT spectrum. Replace O-ring pack before restart.");
+  const [notes, setNotes] = useState("Technician to verify 142 Hz cavitation threshold and perform oil purity sampling.");
+  
+  const [registeredAssets, setRegisteredAssets] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [submittedSuccess, setSubmittedSuccess] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Load custom provisioned assets from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("terracortex_registered_assets");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setRegisteredAssets(parsed.map((a: any) => a.id));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (initialValues) {
+      if (initialValues.unit) setTargetUnit(initialValues.unit);
+      if (initialValues.title) setTitle(initialValues.title);
+      if (initialValues.category) setCategory(initialValues.category);
+      if (initialValues.priority) setPriority(initialValues.priority);
+      if (initialValues.partCode) setPartCode(initialValues.partCode);
+      if (initialValues.assignedRig) setAssignedRig(initialValues.assignedRig);
+      if (initialValues.notes) setNotes(initialValues.notes);
+    } else if (unitId) {
+      setTargetUnit(unitId);
+    }
+  }, [unitId, initialValues, isOpen]);
 
   if (!isOpen) return null;
 
@@ -38,40 +72,45 @@ export default function WorkOrderModal({
     { code: "SAP-RLF-350-CARTRIDGE", name: "Main Relief Valve Cartridge 350-Bar", location: "Bay 03 (Bin A-02)" }
   ];
 
+  const defaultUnits = [
+    "EX-04 • XCMG XE4000 Mining Shovel (Pit 4)",
+    "EX-12 • XCMG XE7000 Mining Excavator (Pit 2)",
+    "EX-17 • XCMG XE4000 Mining Shovel (Pit 2)",
+    "EX-27 • XCMG XE2000 Mining Excavator (Pit 1)",
+    "EX-08 • XCMG XE1250 Mining Excavator (Pit 4)",
+    "EX-15 • XCMG XE2000 Mining Excavator (Pit 3)",
+    "EX-19 • XCMG XE950G Heavy Excavator (Pit 3)",
+    "EX-31 • XCMG XE700D Heavy Excavator (Pit 1)",
+    "EX-33 • XCMG XE7000 Mining Excavator (Pit 3)"
+  ];
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
 
-    const selectedPartObj = sapPartsList.find(p => p.code === partCode);
-
-    const payload = {
-      unit: selectedUnit,
-      title,
-      diagnosis: notes || title,
-      category,
-      priority,
-      assignedRig,
-      part: selectedPartObj ? selectedPartObj.name : "Custom Maintenance Kit",
-      partNumber: partCode,
-      inventory: selectedPartObj ? `In Stock at ${selectedPartObj.location}` : "In Stock",
-      inventoryStatus: "ok",
-      technicianNotes: notes,
-      source: "MANUAL_SUPERVISOR"
-    };
-
     try {
+      const selectedPart = sapPartsList.find(p => p.code === partCode);
       const res = await fetch("/api/work-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          unit: targetUnit,
+          model: targetUnit === "EX-04" ? "XCMG XE4000 Mining Shovel" : "XCMG Mining Heavy Rig",
+          dtc: "MANUAL-DIRECTIVE-AUTH",
+          diagnosis: notes || "Supervisor authorized manual maintenance directive.",
+          part: selectedPart ? selectedPart.name : "Maintenance Consumables Pack",
+          partNumber: partCode,
+          assignedRig,
+          category,
+          priority,
+          source: "MANUAL_SUPERVISOR"
+        })
       });
 
       if (res.ok) {
-        const data = await res.json();
-        setSubmittedSuccess(true);
-        if (onSuccess) onSuccess(data.workOrder);
+        setSubmitted(true);
         setTimeout(() => {
-          setSubmittedSuccess(false);
+          setSubmitted(false);
           setSubmitting(false);
           onClose();
         }, 1500);
@@ -79,69 +118,71 @@ export default function WorkOrderModal({
         setSubmitting(false);
       }
     } catch (err) {
-      console.error("Failed to submit Work Order", err);
+      console.error(err);
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs font-sans text-xs animate-fadeIn">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs font-sans">
+      <div className="bg-white rounded-3xl border border-slate-200/90 max-w-xl w-full p-6 space-y-4 shadow-2xl animate-fadeIn">
+        
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-100 border border-orange-200 flex items-center justify-center text-orange-600">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 shadow-xs">
               <Wrench className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-[10px] text-orange-600 font-bold uppercase tracking-wider">
-                Maintenance Planner Manual Dispatch
-              </div>
-              <h3 className="text-base font-bold text-slate-900 font-sans">
-                Create &amp; Author Work Order
-              </h3>
+              <h3 className="font-bold text-base text-slate-900 tracking-tight">Manual CMMS Work Order</h3>
+              <p className="text-[11px] text-slate-500">Supervisor Service Authorisation &amp; Dispatch Form</p>
             </div>
           </div>
           <button 
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-800 rounded-lg hover:bg-slate-200 transition cursor-pointer"
+            onClick={onClose} 
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {submittedSuccess ? (
-          <div className="p-10 text-center space-y-3">
-            <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-8 h-8" />
+        {submitted ? (
+          <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+              <CheckCircle2 className="w-6 h-6" />
             </div>
-            <h4 className="text-base font-bold text-slate-900">Work Order Created Successfully!</h4>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Work Order for <strong>{selectedUnit}</strong> has been assigned to <strong>{assignedRig}</strong> and queued into the CMMS Work Order Inbox.
+            <h4 className="font-bold text-base text-slate-900">Work Order Created Successfully!</h4>
+            <p className="text-xs text-slate-500 max-w-sm">
+              Work Order officially published to <strong>Maintenance CMMS Hub</strong>. 
+              Notification sent to {assignedRig}.
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+          <form onSubmit={handleSubmit} className="space-y-3 text-xs">
             {/* Row 1: Target Unit & Priority */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
-                  Target Excavator Asset
+                  Target Machine Asset
                 </label>
                 <select
-                  value={selectedUnit}
-                  onChange={(e) => setSelectedUnit(e.target.value)}
+                  value={targetUnit}
+                  onChange={(e) => setTargetUnit(e.target.value)}
                   className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
                 >
-                  <option value="EX-04">EX-04 • XCMG XE4000 Mining Shovel (Pit 4)</option>
-                  <option value="EX-12">EX-12 • XCMG XE7000 Mining Excavator (Pit 2)</option>
-                  <option value="EX-17">EX-17 • XCMG XE4000 Mining Shovel (Pit 2)</option>
-                  <option value="EX-27">EX-27 • XCMG XE2000 Mining Excavator (Pit 1)</option>
-                  <option value="EX-08">EX-08 • XCMG XE1250 Mining Excavator (Pit 4)</option>
-                  <option value="EX-15">EX-15 • XCMG XE2000 Mining Excavator (Pit 3)</option>
-                  <option value="EX-19">EX-19 • XCMG XE950G Heavy Excavator (Pit 3)</option>
-                  <option value="EX-31">EX-31 • XCMG XE700D Heavy Excavator (Pit 1)</option>
-                  <option value="EX-33">EX-33 • XCMG XE7000 Mining Excavator (Pit 3)</option>
+                  {defaultUnits.map((item) => {
+                    const uId = item.split(" ")[0];
+                    return (
+                      <option key={uId} value={uId}>
+                        {item}
+                      </option>
+                    );
+                  })}
+                  {registeredAssets.filter(id => !defaultUnits.some(d => d.startsWith(id))).map((id) => (
+                    <option key={id} value={id}>
+                      {id} • Provisioned Excavator Asset
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -178,7 +219,7 @@ export default function WorkOrderModal({
             </div>
 
             {/* Row 3: Subsystem Category & Assigned Rig */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
                   Machine Subsystem Category
@@ -215,7 +256,7 @@ export default function WorkOrderModal({
             </div>
 
             {/* Row 4: Required Spare Part from SAP Catalog */}
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
               <div className="flex items-center gap-1.5 text-[10px] text-slate-500 uppercase font-bold">
                 <Package className="w-3.5 h-3.5 text-sky-600" />
                 <span>Required Spare Part (SAP ERP Catalog)</span>
