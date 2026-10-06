@@ -8,17 +8,19 @@ import {
   Map, 
   TrendingUp, 
   Cpu,
-  Hexagon
+  Hexagon,
+  HardHat
 } from "lucide-react";
 
 export default function Sidebar() {
   const pathname = usePathname();
 
   const navItems = [
-    { label: "Operations Overview", href: "/", icon: LayoutDashboard },
-    { label: "Pit Stress Radar", href: "/fleet-map", icon: Map },
-    { label: "Predictive Wear", href: "/analytics", icon: TrendingUp },
-    { label: "Neural Diagnostics", href: "/diagnostics", icon: Cpu },
+    { label: "Fleet Command Center", href: "/", icon: LayoutDashboard },
+    { label: "Geotechnical Pit Map", href: "/fleet-map", icon: Map },
+    { label: "Perception & DTC Forensics", href: "/diagnostics", icon: Cpu },
+    { label: "Maintenance CMMS Hub", href: "/analytics", icon: TrendingUp },
+    { label: "Fleet & Site Master Registry", href: "/registry", icon: HardHat },
   ];
 
   return (
