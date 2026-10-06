@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   ClipboardList, 
   Clock, 
@@ -16,7 +16,9 @@ import {
   Layers,
   ArrowRight,
   ExternalLink,
-  Filter
+  Filter,
+  RefreshCw,
+  Plus
 } from "lucide-react";
 
 interface WorkOrderItem {
@@ -30,130 +32,105 @@ interface WorkOrderItem {
   partNumber: string;
   inventory: string;
   inventoryStatus: "ok" | "shortage";
+  priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
   approved: boolean;
   assignedRig: string;
+  category: string;
+  source: string;
+}
+
+interface InventoryItem {
+  sapCode: string;
+  name: string;
+  fitment: string;
+  location: string;
+  onHand: number;
+  minRequired: number;
+  unitCost: string;
+  status: string;
+  statusColor: string;
 }
 
 export default function CMMSDashboard() {
   const [activeTab, setActiveTab] = useState<"inbox" | "inventory">("inbox");
   const [inventorySearch, setInventorySearch] = useState("");
+  const [workOrders, setWorkOrders] = useState<WorkOrderItem[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
-  const [copilotInbox, setCopilotInbox] = useState<WorkOrderItem[]>([
-    {
-      id: "WO-8841-HYD",
-      unit: "EX-04",
-      model: "XCMG XE4000 Mining Shovel",
-      time: "12 mins ago",
-      dtc: "SPN 1079 FMI 03 (Relief Vent Cavitation)",
-      diagnosis: "142 Hz hydraulic micro-implosion in spool valve. Delta pressure drop >35 bar across distributor pump #2.",
-      part: "Parker Spool Seal Kit #PS-902",
-      partNumber: "SAP-PARK-902-KIT",
-      inventory: "4 kits in Bay 03 (Bin B-04)",
-      inventoryStatus: "ok",
-      approved: false,
-      assignedRig: "Mobile Rig 3 (Lead: D. Miller)"
-    },
-    {
-      id: "WO-8839-SLW",
-      unit: "EX-12",
-      model: "XCMG XE7000 Mining Excavator",
-      time: "48 mins ago",
-      dtc: "SPN 2420 FMI 04 (Slew Bearing Harmonic Shock)",
-      diagnosis: "88 Hz radial vibration on swing gear raceway. Accelerated raceway micro-pitting detected on -140m grade.",
-      part: "Slew Ring Bearing Grease Flush & Purge Pack",
-      partNumber: "SAP-LUBE-PURGE-08",
-      inventory: "12 canisters in Bay 02 (Bin A-09)",
-      inventoryStatus: "ok",
-      approved: false,
-      assignedRig: "Mobile Rig 1 (Lead: K. Johansen)"
-    },
-    {
-      id: "WO-8835-CYL",
-      unit: "EX-27",
-      model: "XCMG XE2000 Mining Excavator",
-      time: "2 hours ago",
-      dtc: "SPN 1120 FMI 01 (Cylinder Internal Flow Bypass)",
-      diagnosis: "12.4 L/min internal bypass flow detected on boom cylinder descent. Wiper lip abrasion suspected.",
-      part: "Parker Wiper Lip & Head Pack #W-200",
-      partNumber: "SAP-PARK-W200-HP",
-      inventory: "Out of Stock (PO-9912 Dispatched)",
-      inventoryStatus: "shortage",
-      approved: false,
-      assignedRig: "Workshop Bay 2 (Staging)"
+  const fetchWorkOrders = async () => {
+    try {
+      const res = await fetch("/api/work-orders");
+      if (res.ok) {
+        const data = await res.json();
+        setWorkOrders(data.workOrders);
+      }
+    } catch (e) {
+      console.error("Failed to fetch work orders", e);
     }
-  ]);
+  };
 
-  const inventoryItems = [
-    {
-      sapCode: "SAP-PARK-902-KIT",
-      name: "Parker Spool Seal Kit #PS-902",
-      fitment: "XCMG XE4000 Mining Shovel",
-      location: "Warehouse Bay 03 (Bin B-04)",
-      onHand: 4,
-      minRequired: 2,
-      unitCost: "$1,850",
-      status: "In Stock - Ready",
-      statusColor: "bg-emerald-100 text-emerald-800 border-emerald-200"
-    },
-    {
-      sapCode: "SAP-LUBE-PURGE-08",
-      name: "Slew Bearing Grease Purge Pack #EP-2",
-      fitment: "XCMG XE7000 Mining Excavator",
-      location: "Warehouse Bay 02 (Bin A-09)",
-      onHand: 12,
-      minRequired: 5,
-      unitCost: "$320",
-      status: "In Stock - Ready",
-      statusColor: "bg-emerald-100 text-emerald-800 border-emerald-200"
-    },
-    {
-      sapCode: "SAP-PARK-W200-HP",
-      name: "Parker Boom Wiper Pack #W-200",
-      fitment: "XCMG XE2000 Mining Excavator",
-      location: "Warehouse Bay 01 (Bin C-14)",
-      onHand: 0,
-      minRequired: 3,
-      unitCost: "$940",
-      status: "PO-9912 In Transit (ETA 6h)",
-      statusColor: "bg-amber-100 text-amber-800 border-amber-200"
-    },
-    {
-      sapCode: "SAP-FLT-HYD-440",
-      name: "High-Pressure Return Filter Element #FLT-440",
-      fitment: "Universal Heavy Shovel Fleet",
-      location: "Warehouse Bay 02 (Bin B-18)",
-      onHand: 18,
-      minRequired: 6,
-      unitCost: "$480",
-      status: "In Stock - Ready",
-      statusColor: "bg-emerald-100 text-emerald-800 border-emerald-200"
-    },
-    {
-      sapCode: "SAP-RAD-CORE-1250",
-      name: "Hydraulic Oil Cooler Core #RAD-1250",
-      fitment: "XCMG XE1250 Mining Excavator",
-      location: "Warehouse Yard Staging (Pallet 04)",
-      onHand: 2,
-      minRequired: 1,
-      unitCost: "$6,200",
-      status: "In Stock - Ready",
-      statusColor: "bg-emerald-100 text-emerald-800 border-emerald-200"
-    },
-    {
-      sapCode: "SAP-RLF-350-CARTRIDGE",
-      name: "Main Relief Valve Cartridge 350-Bar",
-      fitment: "XCMG XE4000 / XE7000 Heavy Fleet",
-      location: "Warehouse Bay 03 (Bin A-02)",
-      onHand: 3,
-      minRequired: 2,
-      unitCost: "$3,450",
-      status: "In Stock - Ready",
-      statusColor: "bg-emerald-100 text-emerald-800 border-emerald-200"
+  const fetchInventory = async () => {
+    try {
+      const res = await fetch("/api/inventory");
+      if (res.ok) {
+        const data = await res.json();
+        setInventoryItems(data.items);
+      }
+    } catch (e) {
+      console.error("Failed to fetch inventory", e);
     }
-  ];
+  };
 
-  const handleApprove = (id: string) => {
-    setCopilotInbox(prev => prev.map(item => item.id === id ? { ...item, approved: true } : item));
+  useEffect(() => {
+    Promise.all([fetchWorkOrders(), fetchInventory()]).finally(() => setLoading(false));
+  }, []);
+
+  const handleApprove = async (item: WorkOrderItem) => {
+    try {
+      // 1. Mark work order approved
+      const resWO = await fetch("/api/work-orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id, approved: true })
+      });
+
+      // 2. Deduct spare part stock in SAP inventory API
+      if (item.partNumber && item.inventoryStatus === "ok") {
+        await fetch("/api/inventory", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "deduct", sapCode: item.partNumber, qty: 1 })
+        });
+      }
+
+      if (resWO.ok) {
+        setActionNotice(`Work Order ${item.id} approved! 1x ${item.part} reserved from warehouse.`);
+        setTimeout(() => setActionNotice(null), 4000);
+        fetchWorkOrders();
+        fetchInventory();
+      }
+    } catch (e) {
+      console.error("Error approving WO", e);
+    }
+  };
+
+  const handleRestock = async (sapCode: string) => {
+    try {
+      const res = await fetch("/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restock", sapCode, qty: 5 })
+      });
+      if (res.ok) {
+        setActionNotice(`Restocked +5 units for ${sapCode}. Stock updated in SAP MM.`);
+        setTimeout(() => setActionNotice(null), 3500);
+        fetchInventory();
+      }
+    } catch (e) {
+      console.error("Error restocking", e);
+    }
   };
 
   const filteredInventory = inventoryItems.filter(item => 
@@ -162,10 +139,15 @@ export default function CMMSDashboard() {
     item.fitment.toLowerCase().includes(inventorySearch.toLowerCase())
   );
 
+  const pendingCount = workOrders.filter(i => !i.approved).length;
+  const inStockPercentage = inventoryItems.length > 0 
+    ? Math.round((inventoryItems.filter(i => i.onHand > 0).length / inventoryItems.length) * 100) 
+    : 96;
+
   const kpis = [
     {
-      title: "Pending AI Work Orders",
-      value: copilotInbox.filter(i => !i.approved).length.toString(),
+      title: "Pending Work Orders",
+      value: pendingCount.toString(),
       icon: Inbox,
       color: "text-indigo-600",
       bg: "bg-indigo-50",
@@ -181,7 +163,7 @@ export default function CMMSDashboard() {
     },
     {
       title: "SAP Suku Cadang Ready",
-      value: "96.4%",
+      value: `${inStockPercentage}%`,
       icon: Box,
       color: "text-emerald-600",
       bg: "bg-emerald-50",
@@ -207,21 +189,41 @@ export default function CMMSDashboard() {
           </div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2 mt-1">
             <ClipboardList className="w-7 h-7 text-indigo-600" />
-            Maintenance CMMS & Warehouse Parts Hub
+            Maintenance CMMS &amp; Warehouse Parts Hub
           </h1>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            Approval meja planner, integrasi API suku cadang SAP ERP, dan penugasan regu mekanik lapangan (*Mobile Service Rig*).
+            Approval meja planner, integrasi live API suku cadang SAP ERP, dan penugasan regu mekanik lapangan (*Mobile Service Rig*).
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-xs text-xs">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <span className="font-bold text-slate-700">SAP Plant Maintenance (PM) API: LIVE</span>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => { fetchWorkOrders(); fetchInventory(); }}
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Sync SAP
+          </button>
+          <div className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs text-xs">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-bold text-slate-700">SAP MM v4.2: Connected</span>
+          </div>
         </div>
       </div>
+
+      {/* Action Notification Toast */}
+      {actionNotice && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 font-semibold flex items-center justify-between shadow-xs animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>{actionNotice}</span>
+          </div>
+          <button onClick={() => setActionNotice(null)} className="text-emerald-700 hover:text-emerald-900 font-bold">✕</button>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -257,9 +259,9 @@ export default function CMMSDashboard() {
           >
             <div className="flex items-center gap-2">
               <Inbox className="w-4 h-4" /> 
-              <span>Copilot Work Order Inbox</span>
+              <span>Work Order Inbox (Pending Approval)</span>
               <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">
-                {copilotInbox.filter(i => !i.approved).length}
+                {pendingCount}
               </span>
             </div>
           </button>
@@ -274,9 +276,9 @@ export default function CMMSDashboard() {
           >
             <div className="flex items-center gap-2">
               <Box className="w-4 h-4" /> 
-              <span>SAP Warehouse Inventory API</span>
+              <span>SAP Warehouse Parts API</span>
               <span className="px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold">
-                {inventoryItems.length} Parts Staged
+                {inventoryItems.length} Parts In Catalog
               </span>
             </div>
           </button>
@@ -285,96 +287,110 @@ export default function CMMSDashboard() {
         {/* Tab Content: Inbox */}
         {activeTab === "inbox" && (
           <div className="divide-y divide-slate-100">
-            {copilotInbox.map((item) => (
-              <div key={item.id} className="p-6 hover:bg-slate-50/50 transition flex flex-col lg:flex-row lg:items-center justify-between gap-6 font-sans">
-                <div className="flex-1 space-y-3">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="px-2.5 py-1 bg-indigo-100 text-indigo-800 text-[10px] font-extrabold rounded-md border border-indigo-200/60 font-mono">
-                      {item.id}
-                    </span>
-                    <span className="text-xs font-bold text-slate-900">{item.unit} &bull; {item.model}</span>
-                    <span className="text-xs text-slate-400 flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {item.time}
-                    </span>
-                    {item.approved && (
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> DISPATCHED
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl">
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                        Hardware CAN-Bus DTC Trigger
-                      </div>
-                      <div className="text-xs font-semibold text-rose-700 flex items-center gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        <span>{item.dtc}</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-indigo-50/50 border border-indigo-100/60 p-3.5 rounded-xl">
-                      <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-1">
-                        AI Copilot RAG Engineering Diagnosis
-                      </div>
-                      <div className="text-xs font-medium text-slate-700 leading-relaxed">
-                        {item.diagnosis}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-[11px] text-slate-500 flex items-center gap-2 pt-0.5">
-                    <Truck className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Assigned Mobile Crew: <strong>{item.assignedRig}</strong></span>
-                  </div>
-                </div>
-
-                <div className="w-full lg:w-72 bg-slate-50 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between text-xs space-y-3">
-                  <div>
-                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                      Required Spare Part (SAP ERP)
-                    </div>
-                    <div className="font-bold text-slate-900">{item.part}</div>
-                    <div className="text-[10px] text-slate-500 font-mono mt-0.5">{item.partNumber}</div>
-                    
-                    <div className={`text-[11px] font-semibold mt-2 flex items-center gap-1 ${
-                      item.inventoryStatus === "ok" ? "text-emerald-700" : "text-rose-600"
-                    }`}>
-                      {item.inventoryStatus === "ok" ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      ) : (
-                        <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                      )}
-                      <span>{item.inventory}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    {item.approved ? (
-                      <div className="w-full py-2 bg-emerald-50 text-emerald-800 text-center text-xs font-bold rounded-lg border border-emerald-200">
-                        Crew Dispatched &bull; En Route
-                      </div>
-                    ) : item.inventoryStatus === "ok" ? (
-                      <button 
-                        onClick={() => handleApprove(item.id)}
-                        className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-lg shadow-md shadow-indigo-500/20 transition cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <Wrench className="w-3.5 h-3.5" />
-                        Approve & Dispatch Rig
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={() => alert(`Purchase Order expedited to Perth Supplier for ${item.partNumber}`)}
-                        className="w-full py-2 bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold rounded-lg shadow-md transition cursor-pointer"
-                      >
-                        Expedite Emergency PO
-                      </button>
-                    )}
-                  </div>
-                </div>
+            {workOrders.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 text-xs">
+                No active Work Orders. All fleet maintenance tickets resolved.
               </div>
-            ))}
+            ) : (
+              workOrders.map((item) => (
+                <div key={item.id} className="p-6 hover:bg-slate-50/50 transition flex flex-col lg:flex-row lg:items-center justify-between gap-6 font-sans">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="px-2.5 py-1 bg-indigo-100 text-indigo-800 text-[10px] font-extrabold rounded-md border border-indigo-200/60 font-mono">
+                        {item.id}
+                      </span>
+                      <span className="text-xs font-bold text-slate-900">{item.unit} &bull; {item.model}</span>
+                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {item.time}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
+                        item.source === "AI_COPILOT" 
+                          ? "bg-purple-50 text-purple-700 border-purple-200" 
+                          : "bg-orange-50 text-orange-700 border-orange-200"
+                      }`}>
+                        {item.source === "AI_COPILOT" ? "AI Copilot Draft" : "Supervisor Manual"}
+                      </span>
+                      {item.approved && (
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> DISPATCHED
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                          Diagnostic Trigger / DTC
+                        </div>
+                        <div className="text-xs font-semibold text-rose-700 flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{item.dtc}</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-indigo-50/50 border border-indigo-100/60 p-3.5 rounded-xl">
+                        <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-1">
+                          Engineering Directive
+                        </div>
+                        <div className="text-xs font-medium text-slate-700 leading-relaxed">
+                          {item.diagnosis}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-slate-500 flex items-center gap-2 pt-0.5">
+                      <Truck className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Assigned Field Rig: <strong>{item.assignedRig}</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="w-full lg:w-72 bg-slate-50 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between text-xs space-y-3">
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Required Spare Part (SAP ERP)
+                      </div>
+                      <div className="font-bold text-slate-900">{item.part}</div>
+                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">{item.partNumber}</div>
+                      
+                      <div className={`text-[11px] font-semibold mt-2 flex items-center gap-1 ${
+                        item.inventoryStatus === "ok" ? "text-emerald-700" : "text-rose-600"
+                      }`}>
+                        {item.inventoryStatus === "ok" ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                        )}
+                        <span>{item.inventory}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      {item.approved ? (
+                        <div className="w-full py-2 bg-emerald-50 text-emerald-800 text-center text-xs font-bold rounded-lg border border-emerald-200 flex items-center justify-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          Rig Dispatched &bull; En Route
+                        </div>
+                      ) : item.inventoryStatus === "ok" ? (
+                        <button 
+                          onClick={() => handleApprove(item)}
+                          className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-lg shadow-md shadow-indigo-500/20 transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Wrench className="w-3.5 h-3.5" />
+                          Approve &amp; Dispatch Rig
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => alert(`Purchase Order expedited to supplier for ${item.partNumber}`)}
+                          className="w-full py-2 bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold rounded-lg shadow-md transition cursor-pointer"
+                        >
+                          Expedite Emergency PO
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
 
@@ -383,8 +399,8 @@ export default function CMMSDashboard() {
           <div className="p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Staged Warehouse Parts Inventory</h3>
-                <p className="text-xs text-slate-500">Live stock ledger queried by the AI Maintenance Agent to verify repair feasibility.</p>
+                <h3 className="text-sm font-bold text-slate-900">SAP Materials Management (MM) Live Catalog</h3>
+                <p className="text-xs text-slate-500">Live API inventory endpoint queried by AI Maintenance Agent and Dispatch Planner.</p>
               </div>
 
               <div className="relative">
@@ -404,17 +420,17 @@ export default function CMMSDashboard() {
                 <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase tracking-wider border-b border-slate-200/70">
                   <tr>
                     <th className="py-3 px-4">SAP Part Code</th>
-                    <th className="py-3 px-4">Description & OEM Fitment</th>
+                    <th className="py-3 px-4">Description &amp; Fitment</th>
                     <th className="py-3 px-4">Storage Location</th>
                     <th className="py-3 px-4">Stock on Hand</th>
                     <th className="py-3 px-4">Est. Unit Cost</th>
                     <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4 text-right">Action</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredInventory.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/70 transition">
+                  {filteredInventory.map((item) => (
+                    <tr key={item.sapCode} className="hover:bg-slate-50/70 transition">
                       <td className="py-3.5 px-4 font-mono font-bold text-indigo-700 text-[11px]">
                         {item.sapCode}
                       </td>
@@ -438,12 +454,14 @@ export default function CMMSDashboard() {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => alert(`Part ${item.sapCode} staged to Mobile Rig dispatch bay.`)}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg border border-slate-200 transition text-[11px] cursor-pointer"
-                        >
-                          Stage Part
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleRestock(item.sapCode)}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg border border-slate-200 transition text-[11px] cursor-pointer"
+                          >
+                            Restock +5
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

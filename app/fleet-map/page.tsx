@@ -16,188 +16,367 @@ import {
   Mountain,
   CheckCircle2,
   PhoneCall,
-  Navigation
+  Navigation,
+  ChevronDown
 } from "lucide-react";
 import { useTelemetry } from "@/context/TelemetryContext";
 
+interface PitConfig {
+  id: string;
+  name: string;
+  code: string;
+  coords: string;
+  elevationDatum: string;
+  heading: string;
+  rockStratum: string;
+  rockMpa: number;
+  baseColor: string;
+  description: string;
+  units: {
+    id: string;
+    x: number;
+    y: number;
+    status: "critical" | "warning" | "nominal";
+    cmsi: number;
+    model: string;
+    sn: string;
+    badge: string;
+    title: string;
+    detail: string;
+    site: string;
+    elevation: string;
+    rock: string;
+    rockRisk: string;
+    slopeFos: string;
+    operator: string;
+    shift: string;
+    vhfChannel: string;
+    pairedTruck: string;
+    cycleProgress: string;
+  }[];
+}
+
 export default function FleetMapPage() {
-  const [selectedUnit, setSelectedUnit] = useState("EX-04");
+  const [activePitId, setActivePitId] = useState<string>("pit-4");
+  const [selectedUnitId, setSelectedUnitId] = useState<string>("EX-04");
   const [dispatchAlert, setDispatchAlert] = useState<string | null>(null);
 
   // Layer toggles
-  const [layerEdge, setLayerEdge] = useState(true);
   const [layerThermal, setLayerThermal] = useState(false);
   const [layerCavitation, setLayerCavitation] = useState(true);
   const [layerContours, setLayerContours] = useState(true);
 
-  const { telemetry, isStreaming } = useTelemetry();
-  const ex04 = telemetry?.units["EX-04"];
+  const { telemetry } = useTelemetry();
+  const ex04Live = telemetry?.units["EX-04"];
+  const ex04Cmsi = ex04Live?.cmsi ?? 94.0;
+  const ex04Status: "critical" | "warning" | "nominal" = ex04Cmsi >= 90 ? "critical" : ex04Cmsi >= 70 ? "warning" : "nominal";
 
-  const ex04Cmsi = ex04?.cmsi ?? 94.0;
-  const ex04Status = ex04Cmsi >= 90 ? "critical" : ex04Cmsi >= 70 ? "warning" : "nominal";
+  const pits: Record<string, PitConfig> = {
+    "pit-4": {
+      id: "pit-4",
+      name: "Pilbara Pit 4 — North Extraction Basin",
+      code: "PIL-PIT-04",
+      coords: "23°14'42\"S, 119°54'18\"E",
+      elevationDatum: "-140.40m RL Floor",
+      heading: "042° NNE",
+      rockStratum: "Dense Basalt (184 MPa)",
+      rockMpa: 184,
+      baseColor: "#F8FAFC",
+      description: "Deep open-cut basin with high compressive basalt strata and active loading benches.",
+      units: [
+        {
+          id: "EX-04",
+          x: 440,
+          y: 390,
+          status: ex04Status,
+          cmsi: ex04Cmsi,
+          model: "XCMG XE4000 Mining Shovel",
+          sn: "XCMG-8829-PX",
+          badge: ex04Status === "critical" ? "Critical Anomaly" : ex04Status === "warning" ? "Elevated Load" : "Nominal State",
+          title: ex04Status === "critical" ? "Hydraulic Cavitation Detected" : ex04Status === "warning" ? "Elevated Hydraulic Load" : "Normal Hydraulic State",
+          detail: ex04Live?.anomaly_detail || "Relief pressure spike on 184 MPa Basalt stratum.",
+          site: "Pit 4 Bench 12B (Floor)",
+          elevation: "-140.40m RL",
+          rock: "Hard Basalt (184 MPa)",
+          rockRisk: "Extreme Compressive Wear (+28% limit)",
+          slopeFos: "1.42 (Within Geotech Margin)",
+          operator: "M. Kowalski",
+          shift: "Shift Alpha (06:00 - 18:00)",
+          vhfChannel: "Ch. 04 (North Pit Dispatch)",
+          pairedTruck: "Cat 797F (HT-18)",
+          cycleProgress: "14 of 24 Target Dumps"
+        },
+        {
+          id: "EX-08",
+          x: 580,
+          y: 270,
+          status: "warning",
+          cmsi: 76.2,
+          model: "XCMG XE1250 Mining Excavator",
+          sn: "XCMG-8910-MT",
+          badge: "Thermal Watch",
+          title: "Oil Cooler Radiator Dust Load",
+          detail: "Hydraulic oil temperature excursion 88.2°C near upper bench dump.",
+          site: "Pit 4 Upper Waste Dump",
+          elevation: "-60.20m RL",
+          rock: "Weathered Sandstone (92 MPa)",
+          rockRisk: "Moderate Dust Drag",
+          slopeFos: "1.55 (High Stability)",
+          operator: "S. Tanaka",
+          shift: "Shift Alpha (06:00 - 18:00)",
+          vhfChannel: "Ch. 04 (North Pit Dispatch)",
+          pairedTruck: "Cat 789D (HT-22)",
+          cycleProgress: "11 of 20 Target Dumps"
+        },
+        {
+          id: "EX-31",
+          x: 350,
+          y: 470,
+          status: "nominal",
+          cmsi: 38.6,
+          model: "XCMG XE700D Heavy Excavator",
+          sn: "XCMG-3108-OP",
+          badge: "Nominal State",
+          title: "Nominal Earthmoving",
+          detail: "Standard cycle time. No harmonic spikes or hydraulic anomalies detected.",
+          site: "Pit 4 South Access Ramp",
+          elevation: "-85.00m RL",
+          rock: "Clay & Silt Bed (36 MPa)",
+          rockRisk: "Nominal Baseline",
+          slopeFos: "1.60 (Stable Ramp Margin)",
+          operator: "K. Mensah",
+          shift: "Shift Alpha (06:00 - 18:00)",
+          vhfChannel: "Ch. 04 (North Pit Dispatch)",
+          pairedTruck: "Hitachi EH5000 (HT-04)",
+          cycleProgress: "20 of 24 Target Dumps"
+        }
+      ]
+    },
+    "pit-2": {
+      id: "pit-2",
+      name: "Pilbara Pit 2 — West Wall & Sump",
+      code: "PIL-PIT-02",
+      coords: "23°15'11\"S, 119°53'44\"E",
+      elevationDatum: "-110.00m RL Intermediate",
+      heading: "285° WNW",
+      rockStratum: "Banded Iron Formation (145 MPa)",
+      rockMpa: 145,
+      baseColor: "#F1F5F9",
+      description: "Steep terraced west wall with dynamic grade transit and high centrifugal slew stresses.",
+      units: [
+        {
+          id: "EX-12",
+          x: 480,
+          y: 340,
+          status: "warning",
+          cmsi: 83.1,
+          model: "XCMG XE7000 Mining Excavator",
+          sn: "XCMG-7104-AZ",
+          badge: "High Slew Shock",
+          title: "Slew Bearing Harmonic Spike",
+          detail: "88 Hz radial vibration on swing gear. High centrifugal torque on -140m grade.",
+          site: "Pit 2 Bench 09A",
+          elevation: "-110.00m RL",
+          rock: "Banded Iron Formation (145 MPa)",
+          rockRisk: "Elevated Slew Fatigue",
+          slopeFos: "1.38 (Monitor Grade Slump)",
+          operator: "R. Chen",
+          shift: "Shift Alpha (06:00 - 18:00)",
+          vhfChannel: "Ch. 02 (West Wall Dispatch)",
+          pairedTruck: "Komatsu 930E (HT-09)",
+          cycleProgress: "18 of 24 Target Dumps"
+        },
+        {
+          id: "EX-17",
+          x: 410,
+          y: 430,
+          status: "critical",
+          cmsi: 92.4,
+          model: "XCMG XE4000 Mining Shovel",
+          sn: "XCMG-4412-MK",
+          badge: "Relief Pressure Surge",
+          title: "Main Relief Valve Flutter (155 Hz)",
+          detail: "Heavy stall oscillation against hard Quartzite vein in deep sump.",
+          site: "Pit 2 Deep Sump Floor",
+          elevation: "-168.20m RL",
+          rock: "Quartz Basalt (178 MPa)",
+          rockRisk: "Extreme Stall Hazard",
+          slopeFos: "1.36 (Deep Sump Margin)",
+          operator: "J. Botha",
+          shift: "Shift Alpha (06:00 - 18:00)",
+          vhfChannel: "Ch. 02 (West Wall Dispatch)",
+          pairedTruck: "Cat 797F (HT-12)",
+          cycleProgress: "9 of 24 Target Dumps"
+        }
+      ]
+    },
+    "pit-1": {
+      id: "pit-1",
+      name: "Pilbara Pit 1 — North Cut Pre-Strip",
+      code: "PIL-PIT-01",
+      coords: "23°13'55\"S, 119°55'02\"E",
+      elevationDatum: "-85.00m RL Pre-Strip",
+      heading: "010° NNE",
+      rockStratum: "Quartzite Vein (138 MPa)",
+      rockMpa: 138,
+      baseColor: "#F8FAFC",
+      description: "Upper bench pre-stripping sector preparing bench lines for deep extraction.",
+      units: [
+        {
+          id: "EX-27",
+          x: 460,
+          y: 360,
+          status: "warning",
+          cmsi: 79.4,
+          model: "XCMG XE2000 Mining Excavator",
+          sn: "XCMG-2741-BK",
+          badge: "Cylinder Bypass",
+          title: "Boom Cylinder Bypass Flow Drop",
+          detail: "12.4 L/min internal drop detected during descent. Wiper pack wear.",
+          site: "Pit 1 Bench 06C",
+          elevation: "-85.00m RL",
+          rock: "Quartzite Vein (138 MPa)",
+          rockRisk: "Moderate Abrasive Friction",
+          slopeFos: "1.45 (Stable)",
+          operator: "L. Henderson",
+          shift: "Shift Alpha (06:00 - 18:00)",
+          vhfChannel: "Ch. 01 (Pre-Strip Dispatch)",
+          pairedTruck: "Komatsu 830E (HT-07)",
+          cycleProgress: "15 of 24 Target Dumps"
+        }
+      ]
+    },
+    "pit-3": {
+      id: "pit-3",
+      name: "Pilbara Pit 3 — East Highwall Sump",
+      code: "PIL-PIT-03",
+      coords: "23°15'38\"S, 119°56'20\"E",
+      elevationDatum: "-125.50m RL Highwall",
+      heading: "115° ESE",
+      rockStratum: "Pyrite Shale (162 MPa)",
+      rockMpa: 162,
+      baseColor: "#F1F5F9",
+      description: "Highwall extraction zone with radar slope displacement monitoring.",
+      units: [
+        {
+          id: "EX-33",
+          x: 430,
+          y: 380,
+          status: "critical",
+          cmsi: 91.0,
+          model: "XCMG XE7000 Mining Excavator",
+          sn: "XCMG-7733-PL",
+          badge: "Pinion Shock",
+          title: "Slew Pinion Gearbox Shockwave",
+          detail: "138 Hz harmonic pinion shock on grade transition. High structural stress.",
+          site: "Pit 3 Bench 10 East",
+          elevation: "-125.50m RL",
+          rock: "Pyrite Shale (162 MPa)",
+          rockRisk: "High Geotechnical Impact",
+          slopeFos: "1.34 (Slope Radar Watch)",
+          operator: "P. O'Connor",
+          shift: "Shift Alpha (06:00 - 18:00)",
+          vhfChannel: "Ch. 03 (East Pit Dispatch)",
+          pairedTruck: "Cat 793F (HT-29)",
+          cycleProgress: "8 of 20 Target Dumps"
+        },
+        {
+          id: "EX-19",
+          x: 570,
+          y: 430,
+          status: "nominal",
+          cmsi: 44.0,
+          model: "XCMG XE950G Heavy Excavator",
+          sn: "XCMG-9210-WD",
+          badge: "Nominal State",
+          title: "Standard Digging Cycle",
+          detail: "Digging soft overburden bench. All sensor baselines nominal.",
+          site: "Pit 3 Overburden Terrace",
+          elevation: "-100.00m RL",
+          rock: "Soft Overburden (48 MPa)",
+          rockRisk: "Nominal Baseline",
+          slopeFos: "1.48 (Safe)",
+          operator: "D. Vance",
+          shift: "Shift Alpha (06:00 - 18:00)",
+          vhfChannel: "Ch. 03 (East Pit Dispatch)",
+          pairedTruck: "Komatsu 830E (HT-15)",
+          cycleProgress: "16 of 24 Target Dumps"
+        }
+      ]
+    }
+  };
 
-  const unitsData = [
-    {
-      id: "EX-04",
-      x: 440,
-      y: 390,
-      status: ex04Status,
-      cmsi: ex04Cmsi,
-      model: "XCMG XE4000 Mining Shovel",
-      sn: "XCMG-8829-PX",
-      badge: ex04Status === "critical" ? "Critical Anomaly" : ex04Status === "warning" ? "Elevated Load" : "Nominal State",
-      title: ex04Status === "critical" ? "Hydraulic Cavitation Detected" : ex04Status === "warning" ? "Elevated Hydraulic Load" : "Normal Hydraulic State",
-      detail: ex04?.anomaly_detail || "Relief pressure spike on 184 MPa Basalt stratum.",
-      site: "Sector 4 North Bench",
-      elevation: "-140.40m RL",
-      rock: "Hard Basalt (184 MPa)",
-      rockRisk: "Extreme Compressive Wear (+28% limit)",
-      slopeFos: "1.42 (Within Geotech Margin)",
-      operator: "M. Kowalski",
-      shift: "Shift Alpha (06:00 - 18:00)",
-      vhfChannel: "Ch. 04 (North Pit Dispatch)",
-      pairedTruck: "Cat 797F (HT-18)",
-      cycleProgress: "14 of 24 Target Dumps",
-      isLive: true
-    },
-    {
-      id: "EX-12",
-      x: 500,
-      y: 340,
-      status: "warning",
-      cmsi: 83.1,
-      model: "XCMG XE7000 Mining Excavator",
-      sn: "XCMG-7104-AZ",
-      badge: "High Slew Shock",
-      title: "Slew Bearing Harmonic Spike",
-      detail: "88 Hz radial vibration on swing gear. High centrifugal torque on bench slope.",
-      site: "Sector 2 West Bench",
-      elevation: "-110.00m RL",
-      rock: "Banded Iron Formation (145 MPa)",
-      rockRisk: "Elevated Micro-Pitting Wear",
-      slopeFos: "1.38 (Monitor Grade Slump)",
-      operator: "R. Chen",
-      shift: "Shift Alpha (06:00 - 18:00)",
-      vhfChannel: "Ch. 02 (West Wall Dispatch)",
-      pairedTruck: "Komatsu 930E (HT-09)",
-      cycleProgress: "18 of 24 Target Dumps",
-      isLive: false
-    },
-    {
-      id: "EX-08",
-      x: 530,
-      y: 280,
-      status: "nominal",
-      cmsi: 58.2,
-      model: "XCMG XE1250 Mining Excavator",
-      sn: "XCMG-5512-KL",
-      badge: "Thermal Watch",
-      title: "Hydraulic Thermal Drift",
-      detail: "Minor radiator dust load. Within safe operating limits.",
-      site: "Sector 4 Waste Dump",
-      elevation: "-60.20m RL",
-      rock: "Weathered Sandstone (92 MPa)",
-      rockRisk: "Low Wear Velocity",
-      slopeFos: "1.55 (High Stability)",
-      operator: "S. Tanaka",
-      shift: "Shift Alpha (06:00 - 18:00)",
-      vhfChannel: "Ch. 04 (North Pit Dispatch)",
-      pairedTruck: "Cat 789D (HT-22)",
-      cycleProgress: "11 of 20 Target Dumps",
-      isLive: false
-    },
-    {
-      id: "EX-31",
-      x: 370,
-      y: 330,
-      status: "nominal",
-      cmsi: 38.6,
-      model: "XCMG XE700D Heavy Excavator",
-      sn: "XCMG-4902-TX",
-      badge: "Nominal State",
-      title: "Nominal Earthmoving",
-      detail: "Standard cycle time. No harmonic spikes or hydraulic anomalies detected.",
-      site: "Sector 1 South Cut",
-      elevation: "-85.00m RL",
-      rock: "Clay & Silt Bed (36 MPa)",
-      rockRisk: "Nominal Baseline",
-      slopeFos: "1.60 (Stable Highwall)",
-      operator: "K. Mensah",
-      shift: "Shift Alpha (06:00 - 18:00)",
-      vhfChannel: "Ch. 01 (South Pit Dispatch)",
-      pairedTruck: "Hitachi EH5000 (HT-04)",
-      cycleProgress: "20 of 24 Target Dumps",
-      isLive: false
-    },
-    {
-      id: "EX-19",
-      x: 620,
-      y: 440,
-      status: "nominal",
-      cmsi: 44.0,
-      model: "XCMG XE950G Heavy Excavator",
-      sn: "XCMG-9210-WD",
-      badge: "Nominal State",
-      title: "Standard Digging Envelope",
-      detail: "Digging in soft sandstone bench. Low wear velocity, all sensors healthy.",
-      site: "Sector 3 Overburden",
-      elevation: "-125.50m RL",
-      rock: "Soft Overburden (48 MPa)",
-      rockRisk: "Nominal Baseline",
-      slopeFos: "1.48 (Safe Bench Margin)",
-      operator: "D. Vance",
-      shift: "Shift Alpha (06:00 - 18:00)",
-      vhfChannel: "Ch. 03 (East Sump Dispatch)",
-      pairedTruck: "Komatsu 830E (HT-15)",
-      cycleProgress: "16 of 24 Target Dumps",
-      isLive: false
-    },
-  ];
+  const currentPit = pits[activePitId] || pits["pit-4"];
+  const currentUnit = currentPit.units.find((u) => u.id === selectedUnitId) || currentPit.units[0];
 
-  const currentUnit = unitsData.find((u) => u.id === selectedUnit) || unitsData[0];
+  const handlePitChange = (pitId: string) => {
+    setActivePitId(pitId);
+    const targetPit = pits[pitId];
+    if (targetPit && targetPit.units.length > 0) {
+      setSelectedUnitId(targetPit.units[0].id);
+    }
+  };
 
   const handleRadioCall = () => {
-    setDispatchAlert(`Radio channel opened on ${currentUnit.vhfChannel}. Operator ${currentUnit.operator} acknowledged.`);
+    setDispatchAlert(`VHF Radio link opened on ${currentUnit.vhfChannel}. Operator ${currentUnit.operator} acknowledged.`);
     setTimeout(() => setDispatchAlert(null), 4000);
   };
 
   const handleReroute = () => {
-    setDispatchAlert(`Reroute instruction issued for ${currentUnit.id} to transition to lower-stress Bench 09.`);
+    setDispatchAlert(`Reroute instruction issued for ${currentUnit.id} to transition to lower-stress Bench.`);
     setTimeout(() => setDispatchAlert(null), 4500);
   };
 
   return (
     <div className="space-y-6 max-w-[1560px] mx-auto font-sans pb-12">
-      {/* 1. Geotechnical Pit Header Bar */}
+      {/* 1. Geotechnical Pit Header Bar with Pit Switcher */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200/70 p-5 rounded-2xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
         <div>
-          <div className="text-[10px] font-sans font-bold uppercase tracking-widest text-orange-600">
-            Geotechnical Spatial Telemetry
+          <div className="text-[10px] font-sans font-bold uppercase tracking-widest text-orange-600 flex items-center gap-1.5">
+            <span>Geotechnical Spatial Telemetry</span>
+            <span>&bull;</span>
+            <span className="text-slate-400 font-mono">{currentPit.code}</span>
           </div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight mt-1 flex items-center gap-2">
             <Compass className="w-5 h-5 text-orange-600" />
-            Pilbara Pit 4 &bull; GPS Dispatch & Geotechnical Map
+            {currentPit.name}
           </h1>
           <p className="text-xs text-slate-500 mt-1 font-sans">
-            Real-time RTK spatial tracking, pit bench elevation contours, and hauler loading dispatch.
+            {currentPit.description}
           </p>
         </div>
 
-        {/* Live Status indicator */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>RTK Base Lock: <strong>±2.4cm Fix</strong></span>
+        {/* Interactive Pit Switcher Dropdown */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl text-xs">
+            <span className="text-slate-400 font-semibold px-1 text-[11px]">Active Pit:</span>
+            <div className="flex items-center gap-1">
+              {Object.values(pits).map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => handlePitChange(p.id)}
+                  className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
+                    activePitId === p.id
+                      ? "bg-orange-600 text-white shadow-xs"
+                      : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200/60"
+                  }`}
+                >
+                  {p.code.replace("PIL-", "")}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="text-xs text-slate-500 border-l border-slate-200 pl-3">
-            Active Excavators: <strong className="text-slate-900">{unitsData.length} Units</strong>
+
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>RTK Lock: <strong>&plusmn;2.4cm Fix</strong></span>
           </div>
         </div>
       </div>
 
       {/* Dispatch Action Notification Toast */}
       {dispatchAlert && (
-        <div className="p-3.5 bg-orange-50 border border-orange-200 rounded-xl text-xs text-orange-900 font-medium flex items-center justify-between shadow-sm animate-fadeIn">
+        <div className="p-3.5 bg-orange-50 border border-orange-200 rounded-xl text-xs text-orange-900 font-medium flex items-center justify-between shadow-xs animate-fadeIn">
           <div className="flex items-center gap-2">
             <Radio className="w-4 h-4 text-orange-600 animate-pulse" />
             <span>{dispatchAlert}</span>
@@ -208,7 +387,7 @@ export default function FleetMapPage() {
         </div>
       )}
 
-      {/* 2. Map Filter Layers Bar (INTERACTIVE TOGGLES) */}
+      {/* 2. Map Filter Layers Bar */}
       <div className="bg-white border border-slate-200/70 p-3.5 rounded-xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] flex flex-wrap items-center justify-between gap-3 text-xs font-sans">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-orange-600" />
@@ -225,7 +404,7 @@ export default function FleetMapPage() {
             }`}
           >
             <Mountain className="w-3.5 h-3.5" />
-            <span>Bench Contours (RL Elevation)</span>
+            <span>Bench Contours ({currentPit.elevationDatum})</span>
           </button>
 
           <button
@@ -238,17 +417,6 @@ export default function FleetMapPage() {
           >
             <AlertTriangle className="w-3.5 h-3.5" />
             <span>Hard Stratum Stress Radar</span>
-          </button>
-
-          <button
-            onClick={() => setLayerThermal(!layerThermal)}
-            className={`px-3 py-1.5 rounded-lg border font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-              layerThermal
-                ? "bg-orange-600 text-white border-orange-600 shadow-xs"
-                : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
-            }`}
-          >
-            <span>Hauler Haul Roads</span>
           </button>
         </div>
 
@@ -269,14 +437,14 @@ export default function FleetMapPage() {
         </div>
       </div>
 
-      {/* 3. Main Split View: Topographical Pit Map vs Spatial Dispatch Inspector */}
+      {/* 3. Main Split View: Topographical Pit Map SVG vs Spatial Dispatch Inspector */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
         {/* Left (8 Cols): Topographical Pit Map SVG */}
         <div className="xl:col-span-8 bg-slate-100/80 border border-slate-200/70 rounded-2xl overflow-hidden shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] relative">
           {/* Subtle Map Coordinate Watermark */}
           <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-white/90 text-slate-700 px-3 py-1.5 rounded-xl border border-slate-200/70 text-xs shadow-xs">
             <MapPin className="w-3.5 h-3.5 text-orange-600" />
-            <span className="font-semibold">Bench 12B Center (23°14&apos;42&quot;S, 119°54&apos;18&quot;E)</span>
+            <span className="font-semibold">{currentPit.name.split("—")[0]} Center ({currentPit.coords})</span>
           </div>
 
           {/* SVG Map Canvas */}
@@ -294,7 +462,7 @@ export default function FleetMapPage() {
             </defs>
 
             {/* Base Pit Texture */}
-            <rect width="1000" height="680" fill="#F8FAFC" />
+            <rect width="1000" height="680" fill={currentPit.baseColor} />
             <rect width="1000" height="680" fill="url(#pitGrid)" />
 
             {/* Hard Rock Stress Overlay Layer */}
@@ -305,17 +473,14 @@ export default function FleetMapPage() {
             {/* Elevation Contours Layer */}
             {layerContours && (
               <g stroke="#CBD5E1" fill="none" strokeWidth="1.2">
-                {/* Outer Rim Bench (-60m RL) */}
                 <path d="M 50,220 C 180,90 820,90 950,220 C 990,360 920,580 800,640 C 600,680 280,680 120,620 C 20,530 10,320 50,220 Z" />
-                <text x="70" y="240" fill="#94A3B8" fontSize="10" fontWeight="bold">-60m RL</text>
+                <text x="70" y="240" fill="#94A3B8" fontSize="10" fontWeight="bold">-60m RL Outer Rim</text>
 
-                {/* Intermediate Bench (-100m RL) */}
                 <path d="M 160,260 C 280,180 720,180 840,260 C 880,380 820,520 720,570 C 560,600 320,600 210,540 C 130,470 120,340 160,260 Z" />
-                <text x="180" y="280" fill="#94A3B8" fontSize="10" fontWeight="bold">-100m RL</text>
+                <text x="180" y="280" fill="#94A3B8" fontSize="10" fontWeight="bold">-100m RL Intermediate</text>
 
-                {/* Working Pit Floor (-140m RL) */}
                 <path d="M 280,310 C 380,240 620,240 720,310 C 760,400 700,480 620,510 C 490,530 360,530 300,480 C 250,420 250,360 280,310 Z" stroke="#94A3B8" strokeWidth="1.5" />
-                <text x="300" y="330" fill="#64748B" fontSize="10" fontWeight="bold">-140m RL (Active Pit Floor)</text>
+                <text x="300" y="330" fill="#64748B" fontSize="10" fontWeight="bold">{currentPit.elevationDatum}</text>
               </g>
             )}
 
@@ -335,9 +500,9 @@ export default function FleetMapPage() {
               strokeDasharray="6 6" 
             />
 
-            {/* Machine Markers on Pit Canvas */}
-            {unitsData.map((unit) => {
-              const isSelected = unit.id === selectedUnit;
+            {/* Machine Markers for CURRENT PIT ONLY */}
+            {currentPit.units.map((unit) => {
+              const isSelected = unit.id === currentUnit.id;
               const cx = unit.x;
               const cy = unit.y;
 
@@ -351,15 +516,13 @@ export default function FleetMapPage() {
               return (
                 <g
                   key={unit.id}
-                  onClick={() => setSelectedUnit(unit.id)}
+                  onClick={() => setSelectedUnitId(unit.id)}
                   className="cursor-pointer transition-transform hover:scale-110"
                 >
-                  {/* Pulsing ring for critical status */}
                   {unit.status === "critical" && (
                     <circle cx={cx} cy={cy} r="24" fill={color} opacity="0.2" className="animate-ping" />
                   )}
 
-                  {/* Marker Node */}
                   <circle
                     cx={cx}
                     cy={cy}
@@ -370,7 +533,6 @@ export default function FleetMapPage() {
                     className="shadow-lg"
                   />
 
-                  {/* Selected locator beacon */}
                   {isSelected && (
                     <>
                       <circle cx={cx} cy={cy} r="22" fill="none" stroke={color} strokeWidth="2" opacity="0.8" />
@@ -378,12 +540,10 @@ export default function FleetMapPage() {
                     </>
                   )}
 
-                  {/* Text inside node */}
                   <text x={cx} y={cy + 3.5} textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">
                     {unit.id.replace("EX-", "")}
                   </text>
 
-                  {/* Clean Unit Badge Label Below Node */}
                   <g transform={`translate(${cx}, ${cy + 22})`}>
                     <rect 
                       x="-24" 
@@ -419,12 +579,12 @@ export default function FleetMapPage() {
               <span>100m</span>
             </div>
             <div className="bg-white/90 px-2.5 py-1 rounded border border-slate-200/70 text-slate-700 shadow-xs">
-              Pit Heading: <strong>042° NNE</strong>
+              Pit Heading: <strong>{currentPit.heading}</strong>
             </div>
           </div>
         </div>
 
-        {/* Right (4 Cols): SPATIAL & DISPATCH CONTEXT INSPECTOR (Clean & Non-Redundant) */}
+        {/* Right (4 Cols): SPATIAL & DISPATCH CONTEXT INSPECTOR */}
         <div className="xl:col-span-4 space-y-4 font-sans text-xs">
           {/* Header Card: Identity & Status */}
           <div className="bg-white border border-slate-200/70 rounded-2xl p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] flex items-center justify-between">
@@ -486,7 +646,7 @@ export default function FleetMapPage() {
               <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70">
                 <span className="text-[10px] text-slate-500 uppercase block">Active Bench & RL</span>
                 <span className="font-bold text-slate-900 mt-0.5 block">{currentUnit.site}</span>
-                <span className="text-[10px] text-slate-500">{currentUnit.elevation}</span>
+                <span className="text-[10px] text-slate-500 font-mono">{currentUnit.elevation}</span>
               </div>
 
               <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70">
@@ -556,7 +716,7 @@ export default function FleetMapPage() {
               </button>
             </div>
 
-            {/* Seamless Link to Deep-Dive Diagnostics (Explainable AI / Forensics) */}
+            {/* Link to Deep-Dive Diagnostics */}
             <Link
               href="/diagnostics"
               className="w-full mt-1 p-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl transition shadow-md shadow-orange-500/20 cursor-pointer flex items-center justify-center gap-2 text-xs"
