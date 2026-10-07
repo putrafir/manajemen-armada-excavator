@@ -464,12 +464,11 @@ export default function Dashboard() {
           <table className="w-full text-left text-slate-700">
             <thead className="bg-slate-50/90 text-[10px] text-slate-500 uppercase tracking-wider border-b border-slate-200/70">
               <tr>
-                <th className="py-3.5 px-5 w-16">Rank</th>
-                <th className="py-3.5 px-5 min-w-[180px]">Machine</th>
+                <th className="py-3.5 px-6 w-16">Rank</th>
+                <th className="py-3.5 px-6 min-w-[200px]">Machine</th>
                 <th className="py-3.5 px-5 min-w-[170px] whitespace-nowrap">Pit Sector</th>
-                <th className="py-3.5 px-5 min-w-[130px]">CMSI Score</th>
+                <th className="py-3.5 px-6 min-w-[130px]">CMSI Score</th>
                 <th className="py-3.5 px-6 min-w-[280px]">Primary Anomaly</th>
-                <th className="py-3.5 px-4 w-20">Hours</th>
                 <th className="py-3.5 px-6 text-right min-w-[170px] whitespace-nowrap">Status / Action</th>
               </tr>
             </thead>
@@ -488,8 +487,11 @@ export default function Dashboard() {
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-slate-900 font-sans text-sm">{row.id}</span>
+                      <span className="text-[10px] font-semibold text-slate-500 bg-slate-100/90 px-1.5 py-0.5 rounded border border-slate-200/70 font-mono" title="Cumulative SMU Operating Hours">
+                        {row.hours}h
+                      </span>
                     </div>
-                    <div className="text-slate-500 text-[11px]">{row.model} • {row.operator}</div>
+                    <div className="text-slate-500 text-[11px] truncate max-w-[220px]">{row.model} • {row.operator}</div>
                   </td>
 
                   {/* Pit Sector */}
@@ -528,11 +530,6 @@ export default function Dashboard() {
                           : `Staged: ${row.dispatchInfo.id} awaiting workshop approval`
                         : row.anomalyDetail}
                     </div>
-                  </td>
-
-                  {/* Hours */}
-                  <td className="py-4 px-6 text-slate-500">
-                    {row.hours}h
                   </td>
 
                   {/* Status / Action */}
