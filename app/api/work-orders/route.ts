@@ -197,19 +197,24 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { id, approved } = body;
+    const { id, approved, technicianNotes } = body;
 
     const target = inMemoryWorkOrdersDb.find(w => w.id === id);
-    if (target && approved !== undefined) {
-      target.approved = approved;
+    if (target) {
+      if (approved !== undefined) target.approved = approved;
+      if (technicianNotes !== undefined) target.technicianNotes = technicianNotes;
     }
 
     const supabase = getSupabaseClient();
     if (supabase && isSupabaseConfigured()) {
       try {
+        const updatePayload: any = {};
+        if (approved !== undefined) updatePayload.approved = approved;
+        if (technicianNotes !== undefined) updatePayload.technician_notes = technicianNotes;
+
         await supabase
           .from("work_orders")
-          .update({ approved: approved })
+          .update(updatePayload)
           .eq("id", id);
       } catch (err) {
         console.warn("Supabase update error:", err);

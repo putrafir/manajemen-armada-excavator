@@ -28,33 +28,52 @@ export default function Dashboard() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [customAssetCount, setCustomAssetCount] = useState(0);
   
-  // Real-time synchronization of units that have an active Work Order (Stage 1: Awaiting CMMS vs Stage 2: Dispatched)
+  // Real-time synchronization of units that have an active Work Order & completed services
   const [dispatchedUnits, setDispatchedUnits] = useState<
-    Record<string, { id: string; time: string; rig: string; approved: boolean }>
+    Record<string, { id: string; time: string; rig: string; approved: boolean; completed: boolean }>
   >({});
+  const [completedUnits, setCompletedUnits] = useState<string[]>([]);
   const [filterMode, setFilterMode] = useState<"all" | "pending" | "staged" | "dispatched">("all");
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("terracortex_completed_units");
+      if (stored) {
+        setCompletedUnits(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const fetchDispatchedWorkOrders = async () => {
     try {
       const res = await fetch("/api/work-orders");
       if (res.ok) {
         const data = await res.json();
-        const map: Record<string, { id: string; time: string; rig: string; approved: boolean }> = {};
+        const map: Record<string, { id: string; time: string; rig: string; approved: boolean; completed: boolean }> = {};
+        const compList: string[] = [];
         data.workOrders?.forEach((wo: any) => {
           if (wo.unit) {
+            const isCompleted = wo.technicianNotes === "COMPLETED";
             const isApproved = Boolean(wo.approved);
-            // If already recorded as approved, keep approved. Otherwise save latest
-            if (!map[wo.unit] || isApproved) {
+            if (isCompleted) compList.push(wo.unit);
+
+            if (!map[wo.unit] || isApproved || isCompleted) {
               map[wo.unit] = {
                 id: wo.id,
                 time: wo.time || "Recent",
                 rig: wo.assignedRig || "Mobile Rig",
-                approved: isApproved
+                approved: isApproved,
+                completed: isCompleted
               };
             }
           }
         });
         setDispatchedUnits(map);
+        if (compList.length > 0) {
+          setCompletedUnits(prev => Array.from(new Set([...prev, ...compList])));
+        }
       }
     } catch (e) {
       console.error("Failed to load dispatched WOs:", e);
@@ -85,9 +104,10 @@ export default function Dashboard() {
   };
 
   const ex04 = telemetry?.units["EX-04"];
-  const ex04Cmsi = ex04?.cmsi ?? 94.0;
-  const ex04Pressure = ex04?.hydraulic_pressure_mpa ?? 34.8;
-  const isEx04Critical = ex04?.status === "CRITICAL" || ex04Cmsi >= 80;
+  const isEx04Completed = completedUnits.includes("EX-04") || dispatchedUnits["EX-04"]?.completed;
+  const ex04Cmsi = isEx04Completed ? 38.0 : (ex04?.cmsi ?? 94.0);
+  const ex04Pressure = isEx04Completed ? 24.2 : (ex04?.hydraulic_pressure_mpa ?? 34.8);
+  const isEx04Critical = !isEx04Completed && (ex04?.status === "CRITICAL" || ex04Cmsi >= 80);
 
   interface QueueRow {
     id: string;
@@ -216,24 +236,44 @@ export default function Dashboard() {
     },
   ];
 
+  // Process completed units so they return to nominal operating state
+  const processedQueue: QueueRow[] = rawQueue.map(u => {
+    const isDone = completedUnits.includes(u.id) || dispatchedUnits[u.id]?.completed;
+    if (isDone) {
+      return {
+        ...u,
+        cmsi: Math.min(u.cmsi, 38.0),
+        primaryAnomaly: "Nominal Operating Envelope",
+        anomalyDetail: "Service completed & verified by Mobile Rig",
+        isCritical: false,
+        dotColor: "bg-emerald-500",
+      };
+    }
+    return u;
+  });
+
   // Scope & Dispatch status filtering
   const scopedRaw = pitScope === "ALL" 
-    ? rawQueue 
-    : rawQueue.filter(u => u.pitId === pitScope);
+    ? processedQueue 
+    : processedQueue.filter(u => u.pitId === pitScope);
 
   const filteredByDispatch = scopedRaw.filter(u => {
-    const info = dispatchedUnits[u.id];
-    if (filterMode === "pending") return !info && u.cmsi >= 70;
+    const isDone = completedUnits.includes(u.id) || dispatchedUnits[u.id]?.completed;
+    const info = isDone ? null : dispatchedUnits[u.id];
+    if (filterMode === "pending") return !isDone && !info && u.cmsi >= 70;
     if (filterMode === "staged") return Boolean(info && !info.approved);
     if (filterMode === "dispatched") return Boolean(info && info.approved);
     return true; // 'all'
   });
 
-  const queueData = [...filteredByDispatch].sort((a, b) => b.cmsi - a.cmsi).map((item, idx) => ({
-    ...item,
-    rank: `#0${idx + 1}`,
-    dispatchInfo: dispatchedUnits[item.id] || null
-  }));
+  const queueData = [...filteredByDispatch].sort((a, b) => b.cmsi - a.cmsi).map((item, idx) => {
+    const isDone = completedUnits.includes(item.id) || dispatchedUnits[item.id]?.completed;
+    return {
+      ...item,
+      rank: `#0${idx + 1}`,
+      dispatchInfo: isDone ? null : (dispatchedUnits[item.id] || null)
+    };
+  });
 
   return (
     <div className="space-y-6 max-w-[1560px] mx-auto font-sans pb-12">
@@ -314,7 +354,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
-            {isEx04Critical ? "14" : "12"}
+            {Math.max(0, (isEx04Critical ? 14 : 12) - completedUnits.length)}
           </div>
           <div className="flex items-center gap-1.5 mt-2">
             <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${isEx04Critical ? "text-rose-700 bg-rose-50 border-rose-200/70" : "text-slate-600 bg-slate-100 border-slate-200/70"

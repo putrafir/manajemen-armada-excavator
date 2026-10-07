@@ -1,24 +1,23 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
-  ClipboardList, 
-  Clock, 
-  CheckCircle2, 
-  AlertTriangle, 
-  XCircle, 
-  Box, 
-  Wrench, 
-  Inbox, 
-  Search, 
+import {
+  Inbox,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
   Truck,
-  Package,
-  Layers,
-  ArrowRight,
-  ExternalLink,
-  Filter,
+  Box,
+  Wrench,
+  Search,
+  ClipboardList,
   RefreshCw,
-  Plus
+  XCircle,
+  Activity,
+  History,
+  ShieldCheck,
+  FileCheck,
+  Database
 } from "lucide-react";
 
 interface WorkOrderItem {
@@ -36,6 +35,7 @@ interface WorkOrderItem {
   approved: boolean;
   assignedRig: string;
   category: string;
+  technicianNotes?: string;
   source: string;
 }
 
@@ -51,8 +51,10 @@ interface InventoryItem {
   statusColor: string;
 }
 
+type TabType = "needs_action" | "in_progress" | "history" | "inventory";
+
 export default function CMMSDashboard() {
-  const [activeTab, setActiveTab] = useState<"inbox" | "inventory">("inbox");
+  const [activeTab, setActiveTab] = useState<TabType>("needs_action");
   const [inventorySearch, setInventorySearch] = useState("");
   const [workOrders, setWorkOrders] = useState<WorkOrderItem[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -65,7 +67,7 @@ export default function CMMSDashboard() {
       const res = await fetch("/api/work-orders");
       if (res.ok) {
         const data = await res.json();
-        setWorkOrders(data.workOrders);
+        setWorkOrders(data.workOrders || []);
         if (data.source) setDbSource(data.source);
       }
     } catch (e) {
@@ -78,7 +80,7 @@ export default function CMMSDashboard() {
       const res = await fetch("/api/inventory");
       if (res.ok) {
         const data = await res.json();
-        setInventoryItems(data.items);
+        setInventoryItems(data.items || []);
       }
     } catch (e) {
       console.error("Failed to fetch inventory", e);
@@ -109,12 +111,61 @@ export default function CMMSDashboard() {
 
       if (resWO.ok) {
         setActionNotice(`Work Order ${item.id} approved! 1x ${item.part} reserved from warehouse & ${item.assignedRig} dispatched.`);
-        setTimeout(() => setActionNotice(null), 4000);
+        setTimeout(() => setActionNotice(null), 5000);
         fetchWorkOrders();
         fetchInventory();
       }
     } catch (e) {
       console.error("Error approving WO", e);
+    }
+  };
+
+  const handleCompleteService = async (item: WorkOrderItem) => {
+    try {
+      // 1. Mark Work Order as COMPLETED
+      const resWO = await fetch("/api/work-orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id, technicianNotes: "COMPLETED" })
+      });
+
+      // 2. If it is EX-04, reset telemetry stream back to healthy
+      if (item.unit === "EX-04") {
+        await fetch("/api/telemetry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            unit_id: "EX-04",
+            cmsi: 38.0,
+            status: "NORMAL",
+            hydraulic_pressure: 24.2,
+            manifold_temp: 68.0,
+            cavitation_freq: 12,
+            primary_anomaly: "Nominal Operating Envelope",
+            anomaly_detail: "Service completed • Spool seal replaced by Mobile Rig 3"
+          })
+        });
+      }
+
+      // 3. Persist completed unit in localStorage
+      try {
+        const stored = localStorage.getItem("terracortex_completed_units") || "[]";
+        const parsed = JSON.parse(stored);
+        if (!parsed.includes(item.unit)) {
+          parsed.push(item.unit);
+          localStorage.setItem("terracortex_completed_units", JSON.stringify(parsed));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (resWO.ok) {
+        setActionNotice(`🎉 Service completed for ${item.unit}! Sensors calibrated and excavator returned to active fleet.`);
+        setTimeout(() => setActionNotice(null), 5000);
+        fetchWorkOrders();
+      }
+    } catch (e) {
+      console.error("Error completing service", e);
     }
   };
 
@@ -135,49 +186,57 @@ export default function CMMSDashboard() {
     }
   };
 
-  const filteredInventory = inventoryItems.filter(item => 
+  const filteredInventory = inventoryItems.filter(item =>
     item.name.toLowerCase().includes(inventorySearch.toLowerCase()) ||
     item.sapCode.toLowerCase().includes(inventorySearch.toLowerCase()) ||
     item.fitment.toLowerCase().includes(inventorySearch.toLowerCase())
   );
 
-  const pendingCount = workOrders.filter(i => !i.approved).length;
+  // Categorize work orders
+  const needsActionOrders = workOrders.filter(i => !i.approved && i.technicianNotes !== "COMPLETED");
+  const inProgressOrders = workOrders.filter(i => i.approved && i.technicianNotes !== "COMPLETED");
+  const historyOrders = workOrders.filter(i => i.technicianNotes === "COMPLETED");
+
   const inStockPercentage = inventoryItems.length > 0 
     ? Math.round((inventoryItems.filter(i => i.onHand > 0).length / inventoryItems.length) * 100) 
     : 96;
 
   const kpis = [
     {
-      title: "Pending Work Orders",
-      value: pendingCount.toString(),
-      icon: Inbox,
-      color: "text-indigo-600",
-      bg: "bg-indigo-50",
-      border: "border-indigo-100"
-    },
-    {
-      title: "Active Field Mobile Rigs",
-      value: "3 / 4",
-      icon: Truck,
-      color: "text-sky-600",
-      bg: "bg-sky-50",
-      border: "border-sky-100"
-    },
-    {
-      title: "SAP Suku Cadang Ready",
-      value: `${inStockPercentage}%`,
-      icon: Box,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
-      border: "border-emerald-100"
-    },
-    {
-      title: "Mean Time to Dispatch (MTTD)",
-      value: "14.2m",
+      title: "Action Required",
+      value: needsActionOrders.length.toString(),
       icon: Clock,
       color: "text-amber-600",
       bg: "bg-amber-50",
-      border: "border-amber-100"
+      border: "border-amber-200/80",
+      subtext: "Awaiting planner review & part allocation"
+    },
+    {
+      title: "Active WIP (In-Progress)",
+      value: inProgressOrders.length.toString(),
+      icon: Truck,
+      color: "text-indigo-600",
+      bg: "bg-indigo-50",
+      border: "border-indigo-200/80",
+      subtext: "Mobile Rig En Route / On-Site Repair"
+    },
+    {
+      title: "Completed History",
+      value: historyOrders.length.toString(),
+      icon: CheckCircle2,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      border: "border-emerald-200/80",
+      subtext: "Signed off & unit cleared for production"
+    },
+    {
+      title: "SAP Spare Parts Ready",
+      value: `${inStockPercentage}%`,
+      icon: Box,
+      color: "text-sky-600",
+      bg: "bg-sky-50",
+      border: "border-sky-200/80",
+      subtext: `${inventoryItems.filter(i => i.onHand > 0).length} of ${inventoryItems.length} SKUs in stock ready`
     }
   ];
 
@@ -194,32 +253,41 @@ export default function CMMSDashboard() {
             Maintenance CMMS &amp; Warehouse Parts Hub
           </h1>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            Approval meja planner, integrasi live API suku cadang SAP ERP, dan penugasan regu mekanik lapangan (*Mobile Service Rig*).
+            Planner dispatch desk, live SAP ERP Materials Management API integration, and field mobile workshop coordination.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button 
             onClick={() => { fetchWorkOrders(); fetchInventory(); }}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer"
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+            title="Trigger manual API synchronization with SAP ERP & Database"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Sync SAP
           </button>
-          <div className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs text-xs">
+          
+          <div 
+            className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs text-xs"
+            title="Real-time SAP ERP Materials Management subsystem status"
+          >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <span className="font-bold text-slate-700">SAP MM v4.2: Connected</span>
           </div>
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${
-            dbSource.includes("Supabase")
-              ? "bg-emerald-50 border-emerald-300 text-emerald-800"
-              : "bg-indigo-50 border-indigo-200 text-indigo-800"
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${dbSource.includes("Supabase") ? "bg-emerald-500" : "bg-indigo-500"}`}></span>
-            <span>{dbSource.includes("Supabase") ? "Supabase Live DB" : "Supabase Project: wltoldskffnbxropaspz"}</span>
+
+          <div 
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${
+              dbSource.includes("Supabase")
+                ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                : "bg-indigo-50 border-indigo-200 text-indigo-800"
+            }`}
+            title="Database persistence layer connected to Supabase PostgreSQL"
+          >
+            <Database className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{dbSource.includes("Supabase") ? "Live Cloud DB" : "In-Memory Mode"}</span>
           </div>
         </div>
       </div>
@@ -248,7 +316,8 @@ export default function CMMSDashboard() {
               </div>
               <div>
                 <div className="text-2xl font-extrabold text-slate-900">{kpi.value}</div>
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">{kpi.title}</div>
+                <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider mt-1">{kpi.title}</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">{kpi.subtext}</div>
               </div>
             </div>
           );
@@ -257,165 +326,418 @@ export default function CMMSDashboard() {
 
       {/* Main Content Area */}
       <div className="bg-white border border-slate-200/70 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] overflow-hidden">
-        {/* Tabs */}
-        <div className="flex items-center border-b border-slate-200/70 bg-slate-50/50 px-3 pt-2">
+        {/* Modern Categorized Tabs */}
+        <div className="flex flex-wrap items-center border-b border-slate-200/70 bg-slate-50/70 px-3 pt-2 gap-1">
+          {/* Tab 1: Action Required */}
           <button 
-            onClick={() => setActiveTab("inbox")}
-            className={`px-5 py-3 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
-              activeTab === "inbox" 
-                ? "border-indigo-600 text-indigo-700 bg-white rounded-t-xl" 
-                : "border-transparent text-slate-500 hover:text-slate-700"
+            onClick={() => setActiveTab("needs_action")}
+            className={`px-4 py-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "needs_action" 
+                ? "border-amber-500 text-amber-900 bg-white rounded-t-xl shadow-xs" 
+                : "border-transparent text-slate-600 hover:text-slate-900"
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Inbox className="w-4 h-4" /> 
-              <span>Work Order Inbox (Pending Approval)</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">
-                {pendingCount}
-              </span>
+            <div className="w-5 h-5 rounded-md bg-amber-100 flex items-center justify-center text-amber-700">
+              <Clock className="w-3.5 h-3.5" />
             </div>
+            <span>Action Required</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              needsActionOrders.length > 0 ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-600"
+            }`}>
+              {needsActionOrders.length}
+            </span>
           </button>
 
+          {/* Tab 2: Active WIP */}
           <button 
-            onClick={() => setActiveTab("inventory")}
-            className={`px-5 py-3 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
-              activeTab === "inventory" 
-                ? "border-indigo-600 text-indigo-700 bg-white rounded-t-xl" 
-                : "border-transparent text-slate-500 hover:text-slate-700"
+            onClick={() => setActiveTab("in_progress")}
+            className={`px-4 py-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "in_progress" 
+                ? "border-indigo-600 text-indigo-900 bg-white rounded-t-xl shadow-xs" 
+                : "border-transparent text-slate-600 hover:text-slate-900"
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Box className="w-4 h-4" /> 
-              <span>SAP Warehouse Parts API</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold">
-                {inventoryItems.length} Parts In Catalog
-              </span>
+            <div className="w-5 h-5 rounded-md bg-indigo-100 flex items-center justify-center text-indigo-700">
+              <Truck className="w-3.5 h-3.5" />
             </div>
+            <span>Active WIP (In-Progress)</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1.5 ${
+              inProgressOrders.length > 0 ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-600"
+            }`}>
+              {inProgressOrders.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>}
+              <span>{inProgressOrders.length}</span>
+            </span>
+          </button>
+
+          {/* Tab 3: Completed History */}
+          <button 
+            onClick={() => setActiveTab("history")}
+            className={`px-4 py-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "history" 
+                ? "border-emerald-600 text-emerald-900 bg-white rounded-t-xl shadow-xs" 
+                : "border-transparent text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <div className="w-5 h-5 rounded-md bg-emerald-100 flex items-center justify-center text-emerald-700">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </div>
+            <span>Completed History</span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+              {historyOrders.length}
+            </span>
+          </button>
+
+          {/* Tab 4: SAP MM Parts Catalog */}
+          <button 
+            onClick={() => setActiveTab("inventory")}
+            className={`px-4 py-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "inventory" 
+                ? "border-sky-600 text-sky-900 bg-white rounded-t-xl shadow-xs" 
+                : "border-transparent text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <div className="w-5 h-5 rounded-md bg-sky-100 flex items-center justify-center text-sky-700">
+              <Box className="w-3.5 h-3.5" />
+            </div>
+            <span>SAP MM Parts Catalog</span>
+            <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold">
+              {inventoryItems.length} Parts
+            </span>
           </button>
         </div>
 
-        {/* Tab Content: Inbox */}
-        {activeTab === "inbox" && (
-          <div className="divide-y divide-slate-100">
-            {workOrders.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 text-xs">
-                No active Work Orders. All fleet maintenance tickets resolved.
+        {/* TAB CONTENT: 1. ACTION REQUIRED */}
+        {activeTab === "needs_action" && (
+          <div>
+            <div className="px-6 py-3 bg-amber-50/50 border-b border-amber-100 flex items-center justify-between text-xs text-amber-900 font-medium">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-600" />
+                <span>Inbound fault queue from IoT sensors &amp; AI Copilot. Planner must verify SAP parts stock and authorize field service dispatch.</span>
               </div>
-            ) : (
-              workOrders.map((item) => (
-                <div key={item.id} className="p-6 hover:bg-slate-50/50 transition flex flex-col lg:flex-row lg:items-center justify-between gap-6 font-sans">
-                  <div className="flex-1 space-y-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="px-2.5 py-1 bg-indigo-100 text-indigo-800 text-[10px] font-extrabold rounded-md border border-indigo-200/60 font-mono">
-                        {item.id}
-                      </span>
-                      <span className="text-xs font-bold text-slate-900">{item.unit} &bull; {item.model}</span>
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> {item.time}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
-                        item.source === "AI_COPILOT" 
-                          ? "bg-purple-50 text-purple-700 border-purple-200" 
-                          : "bg-orange-50 text-orange-700 border-orange-200"
-                      }`}>
-                        {item.source === "AI_COPILOT" ? "AI Copilot Draft" : "Supervisor Manual"}
-                      </span>
-                      {item.approved && (
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> DISPATCHED
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                      <div className="bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl">
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                          Diagnostic Trigger / DTC
-                        </div>
-                        <div className="text-xs font-semibold text-rose-700 flex items-center gap-1.5">
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                          <span>{item.dtc}</span>
-                        </div>
-                      </div>
+              <span className="font-bold">{needsActionOrders.length} Pending Review</span>
+            </div>
 
-                      <div className="bg-indigo-50/50 border border-indigo-100/60 p-3.5 rounded-xl">
-                        <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-1">
-                          Engineering Directive
-                        </div>
-                        <div className="text-xs font-medium text-slate-700 leading-relaxed">
-                          {item.diagnosis}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-[11px] text-slate-500 flex items-center gap-2 pt-0.5">
-                      <Truck className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Assigned Field Rig: <strong>{item.assignedRig}</strong></span>
-                    </div>
+            <div className="divide-y divide-slate-100">
+              {needsActionOrders.length === 0 ? (
+                <div className="p-16 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mx-auto">
+                    <CheckCircle2 className="w-6 h-6" />
                   </div>
-
-                  <div className="w-full lg:w-72 bg-slate-50 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between text-xs space-y-3">
-                    <div>
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                        Required Spare Part (SAP ERP)
-                      </div>
-                      <div className="font-bold text-slate-900">{item.part}</div>
-                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">{item.partNumber}</div>
-                      
-                      <div className={`text-[11px] font-semibold mt-2 flex items-center gap-1 ${
-                        item.inventoryStatus === "ok" ? "text-emerald-700" : "text-rose-600"
-                      }`}>
-                        {item.inventoryStatus === "ok" ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        ) : (
-                          <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                        )}
-                        <span>{item.inventory}</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      {item.approved ? (
-                        <div className="w-full py-2.5 px-3 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200 flex flex-col items-center justify-center gap-1 shadow-2xs">
-                          <div className="flex items-center gap-1.5 text-emerald-700">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                            </span>
-                            <span>Rig Dispatched &bull; En Route</span>
-                          </div>
-                          <span className="text-[10px] text-emerald-600 font-normal">Part reserved from SAP inventory</span>
-                        </div>
-                      ) : item.inventoryStatus === "ok" ? (
-                        <div className="space-y-1.5">
-                          <button 
-                            onClick={() => handleApprove(item)}
-                            className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/20 transition cursor-pointer flex items-center justify-center gap-1.5"
-                          >
-                            <Wrench className="w-3.5 h-3.5" />
-                            Approve &amp; Dispatch Rig
-                          </button>
-                          <div className="text-[10px] text-slate-400 text-center">
-                            Reserves 1x SAP part &amp; alerts crew
-                          </div>
-                        </div>
-                      ) : (
-                        <button 
-                          onClick={() => alert(`Purchase Order expedited to supplier for ${item.partNumber}`)}
-                          className="w-full py-2 bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold rounded-lg shadow-md transition cursor-pointer"
-                        >
-                          Expedite Emergency PO
-                        </button>
-                      )}
-                    </div>
+                  <div className="text-sm font-bold text-slate-800">All Work Orders Processed</div>
+                  <div className="text-xs text-slate-500 max-w-md mx-auto">
+                    No pending maintenance tickets in the queue. All alerts have been authorized or completed.
                   </div>
                 </div>
-              ))
-            )}
+              ) : (
+                needsActionOrders.map((item) => (
+                  <div key={item.id} className="p-6 hover:bg-slate-50/50 transition flex flex-col lg:flex-row lg:items-center justify-between gap-6 font-sans">
+                    <div className="flex-1 space-y-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="px-2.5 py-1 bg-amber-100 text-amber-900 text-[10px] font-extrabold rounded-md border border-amber-200/80 font-mono">
+                          {item.id}
+                        </span>
+                        <span className="text-xs font-bold text-slate-900">{item.unit} &bull; {item.model}</span>
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {item.time}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
+                          item.source === "AI_COPILOT" 
+                            ? "bg-purple-50 text-purple-700 border-purple-200" 
+                            : "bg-orange-50 text-orange-700 border-orange-200"
+                        }`}>
+                          {item.source === "AI_COPILOT" ? "AI Copilot Directive" : "Supervisor Manual"}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
+                          item.priority === "CRITICAL"
+                            ? "bg-rose-100 text-rose-800 border-rose-200"
+                            : "bg-amber-100 text-amber-800 border-amber-200"
+                        }`}>
+                          {item.priority} Priority
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div className="bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl">
+                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Diagnostic Trigger / DTC
+                          </div>
+                          <div className="text-xs font-semibold text-rose-700 flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{item.dtc}</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-indigo-50/50 border border-indigo-100/60 p-3.5 rounded-xl">
+                          <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-1">
+                            Engineering Directive
+                          </div>
+                          <div className="text-xs font-medium text-slate-700 leading-relaxed">
+                            {item.diagnosis}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-slate-500 flex items-center gap-2 pt-0.5">
+                        <Truck className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Proposed Field Rig: <strong>{item.assignedRig}</strong></span>
+                      </div>
+                    </div>
+
+                    <div className="w-full lg:w-72 bg-slate-50 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between text-xs space-y-3">
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                          Required Spare Part (SAP ERP)
+                        </div>
+                        <div className="font-bold text-slate-900">{item.part}</div>
+                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">{item.partNumber}</div>
+                        
+                        <div className={`text-[11px] font-semibold mt-2 flex items-center gap-1 ${
+                          item.inventoryStatus === "ok" ? "text-emerald-700" : "text-rose-600"
+                        }`}>
+                          {item.inventoryStatus === "ok" ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                          )}
+                          <span>{item.inventory}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        {item.inventoryStatus === "ok" ? (
+                          <div className="space-y-1.5">
+                            <button 
+                              onClick={() => handleApprove(item)}
+                              className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/20 transition cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              <Wrench className="w-3.5 h-3.5" />
+                              Approve &amp; Dispatch Rig
+                            </button>
+                            <div className="text-[10px] text-slate-400 text-center">
+                              Deducts 1x SAP inventory &amp; dispatches crew
+                            </div>
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => alert(`Purchase Order expedited to supplier for ${item.partNumber}`)}
+                            className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer"
+                          >
+                            Expedite Emergency PO
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
 
-        {/* Tab Content: Real Warehouse Inventory Table */}
+        {/* TAB CONTENT: 2. ACTIVE WIP */}
+        {activeTab === "in_progress" && (
+          <div>
+            <div className="px-6 py-3 bg-indigo-50/50 border-b border-indigo-100 flex items-center justify-between text-xs text-indigo-900 font-medium">
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-indigo-600" />
+                <span>Active Work in Progress: Field Mobile Service Rig dispatched with SAP components and currently performing maintenance at pit.</span>
+              </div>
+              <span className="font-bold">{inProgressOrders.length} Active Crews Deployed</span>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {inProgressOrders.length === 0 ? (
+                <div className="p-16 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mx-auto">
+                    <Truck className="w-6 h-6" />
+                  </div>
+                  <div className="text-sm font-bold text-slate-800">No Active Field Services</div>
+                  <div className="text-xs text-slate-500 max-w-md mx-auto">
+                    Currently no mobile service crews deployed in the pit. All mining excavators operating within nominal envelope.
+                  </div>
+                </div>
+              ) : (
+                inProgressOrders.map((item) => (
+                  <div key={item.id} className="p-6 hover:bg-slate-50/50 transition flex flex-col lg:flex-row lg:items-center justify-between gap-6 font-sans">
+                    <div className="flex-1 space-y-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="px-2.5 py-1 bg-indigo-100 text-indigo-900 text-[10px] font-extrabold rounded-md border border-indigo-200/80 font-mono">
+                          {item.id}
+                        </span>
+                        <span className="text-xs font-bold text-slate-900">{item.unit} &bull; {item.model}</span>
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {item.time}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold border border-indigo-200 flex items-center gap-1.5">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600"></span>
+                          </span>
+                          FIELD RIG EN ROUTE
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div className="bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl">
+                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Diagnostic Trigger / DTC
+                          </div>
+                          <div className="text-xs font-semibold text-rose-700 flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{item.dtc}</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-indigo-50/50 border border-indigo-100/60 p-3.5 rounded-xl">
+                          <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-1">
+                            Engineering Directive
+                          </div>
+                          <div className="text-xs font-medium text-slate-700 leading-relaxed">
+                            {item.diagnosis}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-indigo-800 font-semibold flex items-center gap-2 pt-0.5">
+                        <Truck className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Assigned Crew: <strong>{item.assignedRig}</strong></span>
+                      </div>
+                    </div>
+
+                    <div className="w-full lg:w-72 bg-slate-50 p-4 rounded-xl border border-slate-200/70 flex flex-col justify-between text-xs space-y-3">
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                          Allocated Spare Part (SAP ERP)
+                        </div>
+                        <div className="font-bold text-slate-900">{item.part}</div>
+                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">{item.partNumber}</div>
+                        <div className="text-[11px] font-semibold text-emerald-700 mt-2 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Reserved from Warehouse Staging</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="w-full py-2 px-3 bg-indigo-50 text-indigo-800 text-xs font-bold rounded-xl border border-indigo-200 flex flex-col items-center justify-center gap-0.5 shadow-2xs">
+                          <div className="flex items-center gap-1.5 text-indigo-700">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600"></span>
+                            </span>
+                            <span>Rig Dispatched &bull; En Route</span>
+                          </div>
+                          <span className="text-[10px] text-indigo-600 font-normal">Technician en route to pit</span>
+                        </div>
+
+                        <button
+                          onClick={() => handleCompleteService(item)}
+                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/20 transition cursor-pointer flex items-center justify-center gap-1.5"
+                          title="Simulate service completion: installs part, resets sensors, and clears machine for production"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Complete Service &amp; Return to Fleet</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB CONTENT: 3. COMPLETED HISTORY */}
+        {activeTab === "history" && (
+          <div>
+            <div className="px-6 py-3 bg-emerald-50/50 border-b border-emerald-100 flex items-center justify-between text-xs text-emerald-900 font-medium">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Completed Maintenance Archive: Service orders verified and signed off by mobile workshop. Units returned to active production cycle (Nominal Cycle).</span>
+              </div>
+              <span className="font-bold">{historyOrders.length} Completed Orders</span>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {historyOrders.length === 0 ? (
+                <div className="p-16 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mx-auto">
+                    <History className="w-6 h-6" />
+                  </div>
+                  <div className="text-sm font-bold text-slate-800">No Completed Records Yet</div>
+                  <div className="text-xs text-slate-500 max-w-md mx-auto">
+                    No work orders closed during this shift yet. Click Complete Service in the Active WIP tab once physical repair is verified.
+                  </div>
+                </div>
+              ) : (
+                historyOrders.map((item) => (
+                  <div key={item.id} className="p-6 hover:bg-slate-50/50 transition flex flex-col lg:flex-row lg:items-center justify-between gap-6 font-sans bg-emerald-50/10">
+                    <div className="flex-1 space-y-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 text-[10px] font-extrabold rounded-md border border-emerald-200/80 font-mono">
+                          {item.id}
+                        </span>
+                        <span className="text-xs font-bold text-slate-900">{item.unit} &bull; {item.model}</span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> SERVICE COMPLETED &bull; RETURNED TO FLEET
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div className="bg-white border border-slate-200/80 p-3.5 rounded-xl shadow-2xs">
+                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Resolved DTC Fault
+                          </div>
+                          <div className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>{item.dtc} (Cleared)</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-white border border-slate-200/80 p-3.5 rounded-xl shadow-2xs">
+                          <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">
+                            Executed Directive
+                          </div>
+                          <div className="text-xs font-medium text-slate-700 leading-relaxed">
+                            {item.diagnosis}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-slate-600 flex items-center gap-2 pt-0.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Completed by: <strong>{item.assignedRig}</strong> &bull; Telemetry status restored to Nominal Envelope</span>
+                      </div>
+                    </div>
+
+                    <div className="w-full lg:w-72 bg-emerald-50/60 p-4 rounded-xl border border-emerald-200/70 flex flex-col justify-between text-xs space-y-3">
+                      <div>
+                        <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider mb-1">
+                          Replaced Part (SAP MM)
+                        </div>
+                        <div className="font-bold text-slate-900">{item.part}</div>
+                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">{item.partNumber}</div>
+                        <div className="text-[11px] font-semibold text-emerald-800 mt-2 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Part Fitted &amp; Calibrated</span>
+                        </div>
+                      </div>
+
+                      <div className="w-full py-2.5 px-3 bg-white text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200 flex flex-col items-center justify-center gap-1 shadow-2xs">
+                        <div className="flex items-center gap-1.5 text-emerald-700">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>Signed Off by Workshop</span>
+                        </div>
+                        <span className="text-[10px] text-emerald-600 font-normal">Active in production cycle</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB CONTENT: 4. SAP MM PARTS CATALOG */}
         {activeTab === "inventory" && (
           <div className="p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
