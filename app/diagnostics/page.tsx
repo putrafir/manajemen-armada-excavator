@@ -1367,7 +1367,7 @@ export default function DiagnosticsPage() {
         onClose={() => setCopilotOpen(false)}
         onApprove={(action, payload) => {
           if (action === "AUTO_DISPATCHED") {
-            setToastMessage(`Copilot auto-dispatched official Work Order for ${copilotUnit}!`);
+            setToastMessage(`Work Order for ${copilotUnit} queued into CMMS Hub! Awaiting workshop dispatch.`);
             setTimeout(() => setToastMessage(null), 5000);
           } else if (action === "EDIT_MANUAL") {
             setCopilotPrefill(payload);

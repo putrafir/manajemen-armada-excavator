@@ -93,7 +93,7 @@ export default function Sidebar() {
 
         {/* Dynamic Operational Scope Status */}
         <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px]">
-          <span className="text-slate-400 uppercase font-semibold">Active Domain:</span>
+          <span className="text-slate-400 uppercase font-semibold">Domain:</span>
           <span className="font-semibold text-orange-700 truncate max-w-[125px] flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
             {pitScope === "ALL" ? "Site-Wide Fleet" : currentScopeObj.code}

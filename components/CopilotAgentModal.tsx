@@ -345,10 +345,10 @@ Frequency: ${diag.freq}`
               <div className="w-14 h-14 rounded-2xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-lg shadow-emerald-500/20">
                 <Check className="w-8 h-8 stroke-[2.5]" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Work Order Dispatched to CMMS!</h3>
+              <h3 className="text-lg font-bold text-slate-900">Work Order Queued to CMMS!</h3>
               <p className="text-xs text-slate-600 max-w-md leading-relaxed">
                 Work order officially published to <strong>Maintenance CMMS Hub</strong>. 
-                Field notification broadcast to <strong>{diag.assignedRig}</strong> and operator alert dispatched to cab.
+                Pending workshop planner validation to dispatch <strong>{diag.assignedRig}</strong>.
               </p>
             </div>
           ) : (
@@ -458,7 +458,7 @@ Frequency: ${diag.freq}`
                 className="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-md shadow-indigo-500/20 rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>{submittingAuto ? "Dispatching..." : "Auto-Authorize & Dispatch Work Order"}</span>
+                <span>{submittingAuto ? "Queueing to CMMS..." : "Authorize & Queue to CMMS Hub"}</span>
               </button>
             </div>
           </div>

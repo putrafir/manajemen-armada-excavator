@@ -11,7 +11,8 @@ import {
   Radio,
   CheckCircle2,
   Activity,
-  ArrowUpRight
+  ArrowUpRight,
+  Clock
 } from "lucide-react";
 import WorkOrderModal from "@/components/WorkOrderModal";
 import CopilotAgentModal from "@/components/CopilotAgentModal";
@@ -26,6 +27,43 @@ export default function Dashboard() {
   const [copilotPrefill, setCopilotPrefill] = useState<any>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [customAssetCount, setCustomAssetCount] = useState(0);
+  
+  // Real-time synchronization of units that have an active Work Order (Stage 1: Awaiting CMMS vs Stage 2: Dispatched)
+  const [dispatchedUnits, setDispatchedUnits] = useState<
+    Record<string, { id: string; time: string; rig: string; approved: boolean }>
+  >({});
+  const [filterMode, setFilterMode] = useState<"all" | "pending" | "staged" | "dispatched">("all");
+
+  const fetchDispatchedWorkOrders = async () => {
+    try {
+      const res = await fetch("/api/work-orders");
+      if (res.ok) {
+        const data = await res.json();
+        const map: Record<string, { id: string; time: string; rig: string; approved: boolean }> = {};
+        data.workOrders?.forEach((wo: any) => {
+          if (wo.unit) {
+            const isApproved = Boolean(wo.approved);
+            // If already recorded as approved, keep approved. Otherwise save latest
+            if (!map[wo.unit] || isApproved) {
+              map[wo.unit] = {
+                id: wo.id,
+                time: wo.time || "Recent",
+                rig: wo.assignedRig || "Mobile Rig",
+                approved: isApproved
+              };
+            }
+          }
+        });
+        setDispatchedUnits(map);
+      }
+    } catch (e) {
+      console.error("Failed to load dispatched WOs:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchDispatchedWorkOrders();
+  }, []);
 
   useEffect(() => {
     try {
@@ -178,14 +216,23 @@ export default function Dashboard() {
     },
   ];
 
-  // Scope filtering & Auto-sort queue by CMSI descending
+  // Scope & Dispatch status filtering
   const scopedRaw = pitScope === "ALL" 
     ? rawQueue 
     : rawQueue.filter(u => u.pitId === pitScope);
 
-  const queueData = [...scopedRaw].sort((a, b) => b.cmsi - a.cmsi).map((item, idx) => ({
+  const filteredByDispatch = scopedRaw.filter(u => {
+    const info = dispatchedUnits[u.id];
+    if (filterMode === "pending") return !info && u.cmsi >= 70;
+    if (filterMode === "staged") return Boolean(info && !info.approved);
+    if (filterMode === "dispatched") return Boolean(info && info.approved);
+    return true; // 'all'
+  });
+
+  const queueData = [...filteredByDispatch].sort((a, b) => b.cmsi - a.cmsi).map((item, idx) => ({
     ...item,
-    rank: `#0${idx + 1}`
+    rank: `#0${idx + 1}`,
+    dispatchInfo: dispatchedUnits[item.id] || null
   }));
 
   return (
@@ -318,31 +365,72 @@ export default function Dashboard() {
 
       {/* 3. Priority Maintenance Queue Table */}
       <div className="bg-white border border-slate-200/70 rounded-2xl shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] overflow-hidden font-sans text-xs">
-        <div className="p-5 border-b border-slate-200/70 flex items-center justify-between">
+        <div className="p-5 border-b border-slate-200/70 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-base font-bold text-slate-900 font-sans">
               Priority Maintenance Queue
             </h2>
             <div className="text-xs text-slate-500 font-sans mt-0.5">
-              Ranked dynamically by Live CMSI Score
+              Ranked dynamically by Live CMSI Score &bull; Linked with CMMS Work Orders
             </div>
           </div>
-          <span className="text-[10px] font-sans text-slate-500">
-            Auto-sorts by Real-time Sensor Stress
-          </span>
+
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            <button
+              onClick={() => setFilterMode("all")}
+              className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                filterMode === "all" ? "bg-white text-slate-900 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              All Fleet ({scopedRaw.length})
+            </button>
+            <button
+              onClick={() => setFilterMode("pending")}
+              className={`px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+                filterMode === "pending" ? "bg-orange-600 text-white shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>Needs Action</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filterMode === "pending" ? "bg-orange-700 text-white" : "bg-slate-200 text-slate-700"}`}>
+                {scopedRaw.filter(u => !dispatchedUnits[u.id] && u.cmsi >= 70).length}
+              </span>
+            </button>
+            <button
+              onClick={() => setFilterMode("staged")}
+              className={`px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+                filterMode === "staged" ? "bg-amber-500 text-white shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>Awaiting CMMS</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filterMode === "staged" ? "bg-amber-600 text-white" : "bg-slate-200 text-slate-700"}`}>
+                {scopedRaw.filter(u => dispatchedUnits[u.id] && !dispatchedUnits[u.id].approved).length}
+              </span>
+            </button>
+            <button
+              onClick={() => setFilterMode("dispatched")}
+              className={`px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+                filterMode === "dispatched" ? "bg-emerald-600 text-white shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>Dispatched</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${filterMode === "dispatched" ? "bg-emerald-700 text-white" : "bg-slate-200 text-slate-700"}`}>
+                {scopedRaw.filter(u => dispatchedUnits[u.id] && dispatchedUnits[u.id].approved).length}
+              </span>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-slate-700">
-            <thead className="bg-slate-50 text-[10px] text-slate-600 uppercase tracking-wider border-b border-slate-200/70">
+            <thead className="bg-slate-50/90 text-[10px] text-slate-500 uppercase tracking-wider border-b border-slate-200/70">
               <tr>
-                <th className="py-3.5 px-6">Rank</th>
-                <th className="py-3.5 px-6">Machine</th>
-                <th className="py-3.5 px-6">Pit Sector</th>
-                <th className="py-3.5 px-6">CMSI Score</th>
-                <th className="py-3.5 px-6">Primary Anomaly</th>
-                <th className="py-3.5 px-6">Hours</th>
-                <th className="py-3.5 px-6 text-right">Action</th>
+                <th className="py-3.5 px-5 w-16">Rank</th>
+                <th className="py-3.5 px-5 min-w-[180px]">Machine</th>
+                <th className="py-3.5 px-5 min-w-[170px] whitespace-nowrap">Pit Sector</th>
+                <th className="py-3.5 px-5 min-w-[130px]">CMSI Score</th>
+                <th className="py-3.5 px-6 min-w-[280px]">Primary Anomaly</th>
+                <th className="py-3.5 px-4 w-20">Hours</th>
+                <th className="py-3.5 px-6 text-right min-w-[170px] whitespace-nowrap">Status / Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -365,8 +453,8 @@ export default function Dashboard() {
                   </td>
 
                   {/* Pit Sector */}
-                  <td className="py-4 px-6">
-                    <span className="px-2 py-1 rounded bg-slate-100 text-slate-800 text-[11px] font-semibold border border-slate-200">
+                  <td className="py-4 px-5 whitespace-nowrap">
+                    <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100/90 text-slate-800 text-xs font-semibold border border-slate-200/80 shadow-2xs">
                       {row.pitLabel}
                     </span>
                   </td>
@@ -390,8 +478,16 @@ export default function Dashboard() {
 
                   {/* Anomaly */}
                   <td className="py-4 px-6 font-sans">
-                    <div className="font-semibold text-slate-900">{row.primaryAnomaly}</div>
-                    <div className="text-[11px] text-slate-500 font-sans mt-0.5">{row.anomalyDetail}</div>
+                    <div className="font-semibold text-slate-900 text-xs">
+                      {row.primaryAnomaly}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-sans mt-0.5 leading-snug">
+                      {row.dispatchInfo 
+                        ? row.dispatchInfo.approved
+                          ? `En Route: ${row.dispatchInfo.id} assigned to ${row.dispatchInfo.rig}`
+                          : `Staged: ${row.dispatchInfo.id} awaiting workshop approval`
+                        : row.anomalyDetail}
+                    </div>
                   </td>
 
                   {/* Hours */}
@@ -399,9 +495,34 @@ export default function Dashboard() {
                     {row.hours}h
                   </td>
 
-                  {/* Action */}
-                  <td className="py-4 px-6 text-right font-sans">
-                    {row.cmsi >= 70 ? (
+                  {/* Status / Action */}
+                  <td className="py-4 px-6 text-right font-sans whitespace-nowrap">
+                    {row.dispatchInfo ? (
+                      row.dispatchInfo.approved ? (
+                        <Link
+                          href="/analytics"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/90 text-emerald-800 text-xs font-bold border border-emerald-200/80 transition cursor-pointer group shadow-2xs"
+                          title={`Work Order ${row.dispatchInfo.id} Approved • Field Rig En Route`}
+                        >
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                          </span>
+                          <span>Dispatched</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500 group-hover:text-emerald-800 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/analytics"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100/90 text-amber-800 text-xs font-bold border border-amber-200/80 transition cursor-pointer group shadow-2xs"
+                          title={`Work Order ${row.dispatchInfo.id} Queued • Click to Approve in CMMS Hub`}
+                        >
+                          <Clock className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Awaiting CMMS</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 text-amber-500 group-hover:text-amber-800 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                        </Link>
+                      )
+                    ) : row.cmsi >= 70 ? (
                       <div className="flex items-center justify-end gap-2">
                         <Link
                           href={`/diagnostics?unit=${row.id}`}
@@ -461,7 +582,7 @@ export default function Dashboard() {
         unitId={targetUnit}
         onApprove={(action, payload) => {
           if (action === "AUTO_DISPATCHED") {
-            setToastMessage(`Copilot auto-dispatched official Work Order for ${targetUnit}!`);
+            setToastMessage(`Work Order for ${targetUnit} submitted to CMMS Hub! Awaiting workshop dispatch.`); fetchDispatchedWorkOrders();
             setTimeout(() => setToastMessage(null), 6000);
           } else if (action === "EDIT_MANUAL") {
             setCopilotPrefill(payload);
@@ -475,6 +596,7 @@ export default function Dashboard() {
         onClose={() => {
           setModalOpen(false);
           setCopilotPrefill(null);
+          fetchDispatchedWorkOrders();
         }}
         unitId={targetUnit}
         initialValues={copilotPrefill || undefined}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export interface InventoryItem {
   sapCode: string;
@@ -12,8 +13,7 @@ export interface InventoryItem {
   statusColor: string;
 }
 
-// In-memory inventory state mimicking SAP ERP Materials Management (MM)
-let inventoryDb: InventoryItem[] = [
+let inMemoryInventoryDb: InventoryItem[] = [
   {
     sapCode: "SAP-PARK-902-KIT",
     name: "Parker Spool Seal Kit #PS-902",
@@ -83,48 +83,98 @@ let inventoryDb: InventoryItem[] = [
 ];
 
 export async function GET() {
+  const supabase = getSupabaseClient();
+
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from("sap_inventory")
+        .select("*")
+        .order("name");
+
+      if (!error && data && data.length > 0) {
+        const mapped: InventoryItem[] = data.map((row: any) => ({
+          sapCode: row.sap_code,
+          name: row.name,
+          fitment: row.fitment,
+          location: row.location,
+          onHand: row.on_hand,
+          minRequired: row.min_required,
+          unitCost: row.unit_cost,
+          status: row.status,
+          statusColor: row.status_color || "bg-emerald-100 text-emerald-800 border-emerald-200"
+        }));
+
+        return NextResponse.json({
+          success: true,
+          source: "Supabase PostgreSQL (Live Realtime)",
+          totalParts: mapped.length,
+          timestamp: new Date().toISOString(),
+          items: mapped
+        });
+      }
+    } catch (err) {
+      console.warn("Supabase inventory fetch failed:", err);
+    }
+  }
+
   return NextResponse.json({
     success: true,
-    source: "SAP ERP Materials Management API v4.2",
-    totalParts: inventoryDb.length,
+    source: "In-Memory Local Mode (Ready for Supabase)",
+    totalParts: inMemoryInventoryDb.length,
     timestamp: new Date().toISOString(),
-    items: inventoryDb
+    items: inMemoryInventoryDb
   });
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, sapCode, qty = 1 } = body;
+    const { action, sapCode, qty } = body;
 
-    const item = inventoryDb.find(i => i.sapCode === sapCode);
+    const item = inMemoryInventoryDb.find(i => i.sapCode === sapCode);
     if (!item) {
-      return NextResponse.json({ success: false, error: "Part code not found in SAP catalog" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Item not found" }, { status: 404 });
     }
 
+    const changeQty = qty || 1;
     if (action === "deduct") {
-      if (item.onHand < qty) {
-        return NextResponse.json({ 
-          success: false, 
-          error: `Insufficient stock on hand (${item.onHand} available, requested ${qty})` 
-        }, { status: 400 });
-      }
-      item.onHand -= qty;
+      item.onHand = Math.max(0, item.onHand - changeQty);
       if (item.onHand === 0) {
-        item.status = "Out of Stock (Expedited PO Required)";
-        item.statusColor = "bg-rose-100 text-rose-800 border-rose-200";
+        item.status = "Out of Stock (PO Triggered)";
+        item.statusColor = "bg-red-100 text-red-800 border-red-200";
+      } else if (item.onHand < item.minRequired) {
+        item.status = "Low Stock Alert";
+        item.statusColor = "bg-amber-100 text-amber-800 border-amber-200";
       }
     } else if (action === "restock") {
-      item.onHand += qty;
+      item.onHand += changeQty;
       item.status = "In Stock - Ready";
       item.statusColor = "bg-emerald-100 text-emerald-800 border-emerald-200";
     }
 
+    const supabase = getSupabaseClient();
+    if (supabase && isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from("sap_inventory")
+          .update({
+            on_hand: item.onHand,
+            status: item.status,
+            status_color: item.statusColor,
+            updated_at: new Date().toISOString()
+          })
+          .eq("sap_code", sapCode);
+      } catch (err) {
+        console.warn("Supabase inventory update error:", err);
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: `SAP inventory updated for ${sapCode}`,
+      message: `Stock updated for ${item.name}`,
       item,
-      items: inventoryDb
+      items: inMemoryInventoryDb
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

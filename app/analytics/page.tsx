@@ -58,6 +58,7 @@ export default function CMMSDashboard() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [dbSource, setDbSource] = useState<string>("In-Memory Local Mode");
 
   const fetchWorkOrders = async () => {
     try {
@@ -65,6 +66,7 @@ export default function CMMSDashboard() {
       if (res.ok) {
         const data = await res.json();
         setWorkOrders(data.workOrders);
+        if (data.source) setDbSource(data.source);
       }
     } catch (e) {
       console.error("Failed to fetch work orders", e);
@@ -106,7 +108,7 @@ export default function CMMSDashboard() {
       }
 
       if (resWO.ok) {
-        setActionNotice(`Work Order ${item.id} approved! 1x ${item.part} reserved from warehouse.`);
+        setActionNotice(`Work Order ${item.id} approved! 1x ${item.part} reserved from warehouse & ${item.assignedRig} dispatched.`);
         setTimeout(() => setActionNotice(null), 4000);
         fetchWorkOrders();
         fetchInventory();
@@ -210,6 +212,14 @@ export default function CMMSDashboard() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <span className="font-bold text-slate-700">SAP MM v4.2: Connected</span>
+          </div>
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${
+            dbSource.includes("Supabase")
+              ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+              : "bg-indigo-50 border-indigo-200 text-indigo-800"
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${dbSource.includes("Supabase") ? "bg-emerald-500" : "bg-indigo-500"}`}></span>
+            <span>{dbSource.includes("Supabase") ? "Supabase Live DB" : "Supabase Project: wltoldskffnbxropaspz"}</span>
           </div>
         </div>
       </div>
@@ -366,18 +376,29 @@ export default function CMMSDashboard() {
 
                     <div>
                       {item.approved ? (
-                        <div className="w-full py-2 bg-emerald-50 text-emerald-800 text-center text-xs font-bold rounded-lg border border-emerald-200 flex items-center justify-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          Rig Dispatched &bull; En Route
+                        <div className="w-full py-2.5 px-3 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200 flex flex-col items-center justify-center gap-1 shadow-2xs">
+                          <div className="flex items-center gap-1.5 text-emerald-700">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                            </span>
+                            <span>Rig Dispatched &bull; En Route</span>
+                          </div>
+                          <span className="text-[10px] text-emerald-600 font-normal">Part reserved from SAP inventory</span>
                         </div>
                       ) : item.inventoryStatus === "ok" ? (
-                        <button 
-                          onClick={() => handleApprove(item)}
-                          className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-lg shadow-md shadow-indigo-500/20 transition cursor-pointer flex items-center justify-center gap-1.5"
-                        >
-                          <Wrench className="w-3.5 h-3.5" />
-                          Approve &amp; Dispatch Rig
-                        </button>
+                        <div className="space-y-1.5">
+                          <button 
+                            onClick={() => handleApprove(item)}
+                            className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/20 transition cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            <Wrench className="w-3.5 h-3.5" />
+                            Approve &amp; Dispatch Rig
+                          </button>
+                          <div className="text-[10px] text-slate-400 text-center">
+                            Reserves 1x SAP part &amp; alerts crew
+                          </div>
+                        </div>
                       ) : (
                         <button 
                           onClick={() => alert(`Purchase Order expedited to supplier for ${item.partNumber}`)}

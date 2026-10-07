@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export interface WorkOrder {
   id: string;
@@ -20,7 +21,7 @@ export interface WorkOrder {
   createdAt: string;
 }
 
-let workOrdersDb: WorkOrder[] = [
+let inMemoryWorkOrdersDb: WorkOrder[] = [
   {
     id: "WO-8841-HYD",
     unit: "EX-04",
@@ -78,10 +79,53 @@ let workOrdersDb: WorkOrder[] = [
 ];
 
 export async function GET() {
+  const supabase = getSupabaseClient();
+
+  if (supabase && isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from("work_orders")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        const mapped: WorkOrder[] = data.map((row: any) => ({
+          id: row.id,
+          unit: row.unit_id,
+          model: row.model,
+          time: row.time_label || "Just now",
+          dtc: row.dtc,
+          diagnosis: row.diagnosis,
+          part: row.part_name,
+          partNumber: row.part_number,
+          inventory: row.inventory_location || "In Warehouse Staging",
+          inventoryStatus: row.inventory_status || "ok",
+          priority: row.priority,
+          approved: row.approved,
+          assignedRig: row.assigned_rig,
+          category: row.category,
+          technicianNotes: row.technician_notes,
+          source: row.source,
+          createdAt: row.created_at
+        }));
+
+        return NextResponse.json({
+          success: true,
+          source: "Supabase PostgreSQL (Live Realtime)",
+          count: mapped.length,
+          workOrders: mapped
+        });
+      }
+    } catch (err) {
+      console.warn("Supabase fetch failed, falling back to in-memory:", err);
+    }
+  }
+
   return NextResponse.json({
     success: true,
-    count: workOrdersDb.length,
-    workOrders: workOrdersDb
+    source: "In-Memory Local Mode (Ready for Supabase)",
+    count: inMemoryWorkOrdersDb.length,
+    workOrders: inMemoryWorkOrdersDb
   });
 }
 
@@ -110,13 +154,40 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString()
     };
 
-    workOrdersDb.unshift(newWO);
+    inMemoryWorkOrdersDb.unshift(newWO);
+
+    const supabase = getSupabaseClient();
+    if (supabase && isSupabaseConfigured()) {
+      try {
+        await supabase.from("work_orders").insert({
+          id: newWO.id,
+          unit_id: newWO.unit,
+          model: newWO.model,
+          time_label: newWO.time,
+          dtc: newWO.dtc,
+          diagnosis: newWO.diagnosis,
+          part_name: newWO.part,
+          part_number: newWO.partNumber,
+          inventory_location: newWO.inventory,
+          inventory_status: newWO.inventoryStatus,
+          priority: newWO.priority,
+          approved: newWO.approved,
+          assigned_rig: newWO.assignedRig,
+          category: newWO.category,
+          technician_notes: newWO.technicianNotes,
+          source: newWO.source,
+          created_at: newWO.createdAt
+        });
+      } catch (err) {
+        console.warn("Supabase insert error:", err);
+      }
+    }
 
     return NextResponse.json({
       success: true,
       message: "Work Order created and queued into CMMS Inbox",
       workOrder: newWO,
-      workOrders: workOrdersDb
+      workOrders: inMemoryWorkOrdersDb
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -128,20 +199,28 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { id, approved } = body;
 
-    const target = workOrdersDb.find(w => w.id === id);
-    if (!target) {
-      return NextResponse.json({ success: false, error: "Work Order not found" }, { status: 404 });
+    const target = inMemoryWorkOrdersDb.find(w => w.id === id);
+    if (target && approved !== undefined) {
+      target.approved = approved;
     }
 
-    if (approved !== undefined) {
-      target.approved = approved;
+    const supabase = getSupabaseClient();
+    if (supabase && isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from("work_orders")
+          .update({ approved: approved })
+          .eq("id", id);
+      } catch (err) {
+        console.warn("Supabase update error:", err);
+      }
     }
 
     return NextResponse.json({
       success: true,
       message: `Work Order ${id} updated`,
       workOrder: target,
-      workOrders: workOrdersDb
+      workOrders: inMemoryWorkOrdersDb
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
