@@ -197,6 +197,25 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
+    if (body.resetAll) {
+      inMemoryWorkOrdersDb.forEach(w => {
+        w.approved = false;
+        w.technicianNotes = "";
+      });
+      const supabase = getSupabaseClient();
+      if (supabase && isSupabaseConfigured()) {
+        try {
+          await supabase.from("work_orders").update({ approved: false, technician_notes: null }).neq("id", "dummy");
+        } catch (err) {
+          console.warn("Supabase resetAll error:", err);
+        }
+      }
+      return NextResponse.json({
+        success: true,
+        message: "All work orders reset to pending critical state",
+        workOrders: inMemoryWorkOrdersDb
+      });
+    }
     const { id, approved, technicianNotes } = body;
 
     const target = inMemoryWorkOrdersDb.find(w => w.id === id);

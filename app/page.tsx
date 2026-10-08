@@ -37,10 +37,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("terracortex_completed_units");
-      if (stored) {
-        setCompletedUnits(JSON.parse(stored));
-      }
+      localStorage.removeItem("terracortex_completed_units");
+      setCompletedUnits([]);
     } catch (e) {
       console.error(e);
     }
@@ -98,6 +96,23 @@ export default function Dashboard() {
     }
   }, []);
 
+  const handleResetAllToCritical = async () => {
+    localStorage.removeItem("terracortex_completed_units");
+    setCompletedUnits([]);
+    setDispatchedUnits({});
+    setToastMessage("All excavators reset to Critical Anomaly state (Red Alert)!");
+    setTimeout(() => setToastMessage(null), 4000);
+    try {
+      await fetch("/api/work-orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetAll: true })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const openWorkOrder = (unitId: string) => {
     setTargetUnit(unitId);
     setModalOpen(true);
@@ -132,42 +147,12 @@ export default function Dashboard() {
       isLiveSimulation: true,
       model: "XCMG XE4000 Mining Shovel",
       operator: "M. Kowalski",
-      cmsi: ex04Cmsi,
-      primaryAnomaly: isEx04Critical
-        ? "Hydraulic Cavitation Anomaly"
-        : ex04Cmsi >= 70
-          ? "Elevated Hydraulic Load"
-          : "Normal Operating Envelope",
-      anomalyDetail: ex04?.anomaly_detail || (isEx04Critical ? `Relief pressure spike (${ex04Pressure} MPa)` : `Nominal line pressure (${ex04Pressure} MPa)`),
+      cmsi: Math.max(94.0, ex04Cmsi),
+      primaryAnomaly: "Hydraulic Cavitation Anomaly",
+      anomalyDetail: ex04?.anomaly_detail || `Relief pressure spike (${ex04Pressure} MPa) on 184 MPa Basalt`,
       hours: "4,210",
-      isCritical: isEx04Critical,
-      dotColor: isEx04Critical ? "bg-red-500" : ex04Cmsi >= 70 ? "bg-amber-500" : "bg-emerald-500",
-    },
-    {
-      id: "EX-08",
-      pitId: "pit-4",
-      pitLabel: "Pit 4 Waste Dump (-60m RL)",
-      model: "XCMG XE1250 Mining Excavator",
-      operator: "S. Tanaka",
-      cmsi: 76.2,
-      primaryAnomaly: "Oil Cooler Radiator Dust Load",
-      anomalyDetail: "Thermal excursion 88.2°C at dump",
-      hours: "8,920",
-      isCritical: false,
-      dotColor: "bg-amber-500",
-    },
-    {
-      id: "EX-12",
-      pitId: "pit-2",
-      pitLabel: "Pit 2 West Bench (-45m RL)",
-      model: "XCMG XE7000 Mining Excavator",
-      operator: "R. Chen",
-      cmsi: 83.1,
-      primaryAnomaly: "Slew Bearing Harmonic Spike",
-      anomalyDetail: "Vibration peak 4.2 kHz harmonic",
-      hours: "6,840",
-      isCritical: false,
-      dotColor: "bg-amber-500",
+      isCritical: true,
+      dotColor: "bg-red-500",
     },
     {
       id: "EX-17",
@@ -175,38 +160,12 @@ export default function Dashboard() {
       pitLabel: "Pit 2 Deep Sump (-45m RL)",
       model: "XCMG XE4000 Mining Shovel",
       operator: "A. Weber",
-      cmsi: 92.4,
-      primaryAnomaly: "Main Relief Valve Flutter",
-      anomalyDetail: "155 Hz acoustic valve resonance",
+      cmsi: 95.2,
+      primaryAnomaly: "Main Relief Valve Flutter & Surge",
+      anomalyDetail: "155 Hz acoustic valve resonance & pressure surge",
       hours: "3,890",
       isCritical: true,
       dotColor: "bg-red-500",
-    },
-    {
-      id: "EX-27",
-      pitId: "pit-1",
-      pitLabel: "Pit 1 North Cut (+80m RL)",
-      model: "XCMG XE2000 Mining Excavator",
-      operator: "J. Botha",
-      cmsi: 79.4,
-      primaryAnomaly: "Cylinder Flow Bypass Alert",
-      anomalyDetail: "Internal leakage flow 12.4 L/min",
-      hours: "5,110",
-      isCritical: false,
-      dotColor: "bg-amber-500",
-    },
-    {
-      id: "EX-31",
-      pitId: "pit-1",
-      pitLabel: "Pit 1 South Cut (+80m RL)",
-      model: "XCMG XE700D Heavy Excavator",
-      operator: "K. Mensah",
-      cmsi: 38.6,
-      primaryAnomaly: "Nominal Operating Envelope",
-      anomalyDetail: "Baseline operational wear",
-      hours: "1,140",
-      isCritical: false,
-      dotColor: "bg-emerald-500",
     },
     {
       id: "EX-33",
@@ -214,10 +173,23 @@ export default function Dashboard() {
       pitLabel: "Pit 3 East Highwall (-210m RL)",
       model: "XCMG XE7000 Mining Excavator",
       operator: "P. Santos",
-      cmsi: 91.0,
-      primaryAnomaly: "Slew Pinion Gearbox Shock",
-      anomalyDetail: "138 Hz harmonic pinion contact shock",
+      cmsi: 94.4,
+      primaryAnomaly: "Slew Pinion Gearbox Contact Shock",
+      anomalyDetail: "138 Hz harmonic pinion contact shock & gear tooth stress",
       hours: "5,120",
+      isCritical: true,
+      dotColor: "bg-red-500",
+    },
+    {
+      id: "EX-12",
+      pitId: "pit-2",
+      pitLabel: "Pit 2 West Bench (-45m RL)",
+      model: "XCMG XE7000 Mining Excavator",
+      operator: "R. Chen",
+      cmsi: 93.8,
+      primaryAnomaly: "Slew Bearing Heavy Harmonic Shock",
+      anomalyDetail: "Critical vibration peak 5.8 kHz harmonic on -140m grade",
+      hours: "6,840",
       isCritical: true,
       dotColor: "bg-red-500",
     },
@@ -227,12 +199,51 @@ export default function Dashboard() {
       pitLabel: "Pit 3 Overburden (-210m RL)",
       model: "XCMG XE950G Heavy Excavator",
       operator: "D. Vance",
-      cmsi: 44.0,
-      primaryAnomaly: "Nominal Operating Envelope",
-      anomalyDetail: "Baseline operational wear",
+      cmsi: 92.1,
+      primaryAnomaly: "Hydraulic Return Line Pressure Wave",
+      anomalyDetail: "Differential backpressure surge 31.4 MPa in overburden zone",
       hours: "2,350",
-      isCritical: false,
-      dotColor: "bg-emerald-500",
+      isCritical: true,
+      dotColor: "bg-red-500",
+    },
+    {
+      id: "EX-08",
+      pitId: "pit-4",
+      pitLabel: "Pit 4 Waste Dump (-60m RL)",
+      model: "XCMG XE1250 Mining Excavator",
+      operator: "S. Tanaka",
+      cmsi: 91.5,
+      primaryAnomaly: "Oil Cooler Radiator Thermal Spike",
+      anomalyDetail: "Severe thermal excursion 98.4°C exceeding relief limit",
+      hours: "8,920",
+      isCritical: true,
+      dotColor: "bg-red-500",
+    },
+    {
+      id: "EX-27",
+      pitId: "pit-1",
+      pitLabel: "Pit 1 North Cut (+80m RL)",
+      model: "XCMG XE2000 Mining Excavator",
+      operator: "J. Botha",
+      cmsi: 90.6,
+      primaryAnomaly: "Cylinder Flow Bypass Rupture Hazard",
+      anomalyDetail: "Internal leakage flow 18.2 L/min across boom seals",
+      hours: "5,110",
+      isCritical: true,
+      dotColor: "bg-red-500",
+    },
+    {
+      id: "EX-31",
+      pitId: "pit-1",
+      pitLabel: "Pit 1 South Cut (+80m RL)",
+      model: "XCMG XE700D Heavy Excavator",
+      operator: "K. Mensah",
+      cmsi: 90.2,
+      primaryAnomaly: "Main Pump Delivery Pressure Spike",
+      anomalyDetail: "Pressure line excursion 33.8 MPa under hard bucket stall",
+      hours: "1,140",
+      isCritical: true,
+      dotColor: "bg-red-500",
     },
   ];
 
@@ -304,8 +315,16 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-sans font-bold flex items-center gap-1.5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleResetAllToCritical}
+            className="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Reset all fleet excavators back to Critical Anomaly state (Red Alert)"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-red-600 animate-pulse" />
+            <span>Reset All to Red (Test Mode)</span>
+          </button>
+          <span className="px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-sans font-bold flex items-center gap-1.5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
             <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
             Live Telemetry: {ex04Pressure} MPa
           </span>

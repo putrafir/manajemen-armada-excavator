@@ -103,13 +103,13 @@ const generateFleet = (): FleetUnitInfo[] => {
     site: "Pit 2 West Bench",
     rock: "Banded Iron Formation",
     rockMpa: 145,
-    cmsi: 83.1,
-    status: "high",
+    cmsi: 93.8,
+    status: "critical",
     component: "Slew Ring Bearing",
-    faultSummary: "88 Hz raceway micro-pitting & grease starvation",
+    faultSummary: "88 Hz raceway micro-pitting & severe grease starvation",
     peakHz: 88,
-    pressureMpa: 29.4,
-    tempC: 84.1,
+    pressureMpa: 33.4,
+    tempC: 91.1,
     hours: 6840
   });
 
@@ -120,13 +120,13 @@ const generateFleet = (): FleetUnitInfo[] => {
     site: "Pit 1 North Cut",
     rock: "Quartzite Vein",
     rockMpa: 138,
-    cmsi: 79.4,
-    status: "high",
+    cmsi: 90.6,
+    status: "critical",
     component: "Boom Cylinder Pack",
-    faultSummary: "42 Hz bypass flutter & 12.4 L/min internal drop",
+    faultSummary: "42 Hz bypass flutter & 18.2 L/min internal drop",
     peakHz: 42,
-    pressureMpa: 28.1,
-    tempC: 81.3,
+    pressureMpa: 32.1,
+    tempC: 89.3,
     hours: 5110
   });
 
@@ -137,13 +137,13 @@ const generateFleet = (): FleetUnitInfo[] => {
     site: "Pit 4 Waste Dump",
     rock: "Weathered Sandstone",
     rockMpa: 92,
-    cmsi: 76.2,
-    status: "high",
+    cmsi: 91.5,
+    status: "critical",
     component: "Oil Cooler Exchanger",
-    faultSummary: "28 Hz aerodynamic drag & radiator dust clogging",
+    faultSummary: "28 Hz aerodynamic drag & radiator dust clogging thermal excursion",
     peakHz: 28,
-    pressureMpa: 26.5,
-    tempC: 88.2,
+    pressureMpa: 31.5,
+    tempC: 98.4,
     hours: 8920
   });
 
