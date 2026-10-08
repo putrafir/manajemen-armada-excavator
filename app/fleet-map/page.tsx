@@ -540,8 +540,21 @@ export default function FleetMapPage() {
                 <g
                   key={unit.id}
                   onClick={() => setSelectedUnitId(unit.id)}
-                  className="cursor-pointer transition-transform hover:scale-110"
+                  className="cursor-pointer group select-none"
                 >
+                  {/* Invisible enlarged hit area for effortless clicking without jumping */}
+                  <circle cx={cx} cy={cy + 10} r="32" fill="transparent" />
+
+                  {/* Stationary hover ring highlight */}
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={isSelected ? 20 : 16}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="1.5"
+                    className="opacity-0 group-hover:opacity-60 transition-opacity duration-150"
+                  />
                   {unit.status === "critical" && (
                     <circle cx={cx} cy={cy} r="24" fill={color} opacity="0.2" className="animate-ping" />
                   )}
