@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { 
   Sparkles, 
   ShieldAlert, 
@@ -47,6 +48,15 @@ interface UnitDiagnosticProfile {
   operatorAlert: string;
   source?: string;
   executionTrace?: string[];
+}
+
+
+function formatMarkdownText(t: string): string {
+  if (!t) return "";
+  return t
+    .replace(/(:\s*|\s+)(\d+\.\s+\*\*)/g, "$1\n\n$2")
+    .replace(/([^0-9][.!?])\s+(\*\*[^*]+:\*\*)/g, "$1\n\n$2")
+    .trim();
 }
 
 export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }: CopilotAgentModalProps) {
@@ -430,7 +440,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
 
                 {/* Chat History */}
                 {chatMessages.length > 0 && (
-                  <div className="max-h-40 overflow-y-auto space-y-2 p-2.5 bg-white rounded-xl border border-slate-200/70 text-[11px]">
+                  <div className="max-h-60 overflow-y-auto space-y-2 p-2.5 bg-white rounded-xl border border-slate-200/70 text-[11px]">
                     {chatMessages.map((msg, idx) => (
                       <div
                         key={idx}
@@ -443,7 +453,31 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
                         ) : (
                           <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
                         )}
-                        <span className="leading-relaxed">{msg.text}</span>
+                        <div className="flex-1 overflow-hidden leading-relaxed text-[11px]">
+                          {msg.sender === "user" ? (
+                            <span className="font-medium text-slate-800">{msg.text}</span>
+                          ) : (
+                            <div className="prose prose-xs max-w-none text-indigo-950">
+                              <ReactMarkdown
+                                components={{
+                                  p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                                  strong: ({ children }) => <strong className="font-bold text-indigo-950">{children}</strong>,
+                                  em: ({ children }) => <em className="italic text-indigo-900 font-medium">{children}</em>,
+                                  ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1.5 font-normal">{children}</ol>,
+                                  ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1.5 font-normal">{children}</ul>,
+                                  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                                  code: ({ children }) => (
+                                    <code className="bg-indigo-100/80 text-indigo-900 px-1 py-0.5 rounded text-[10px] font-mono">
+                                      {children}
+                                    </code>
+                                  ),
+                                }}
+                              >
+                                {formatMarkdownText(msg.text)}
+                              </ReactMarkdown>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                     {chatLoading && (
