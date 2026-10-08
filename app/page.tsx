@@ -100,13 +100,11 @@ export default function Dashboard() {
     localStorage.removeItem("terracortex_completed_units");
     setCompletedUnits([]);
     setDispatchedUnits({});
-    setToastMessage("All excavators reset to Critical Anomaly state (Red Alert)!");
+    setToastMessage("All excavators reset to Critical (Investigate & Copilot ready)!");
     setTimeout(() => setToastMessage(null), 4000);
     try {
       await fetch("/api/work-orders", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resetAll: true })
+        method: "DELETE"
       });
     } catch (e) {
       console.error(e);

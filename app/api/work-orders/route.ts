@@ -11,72 +11,18 @@ export interface WorkOrder {
   part: string;
   partNumber: string;
   inventory: string;
-  inventoryStatus: "ok" | "shortage";
+  inventoryStatus: "ok" | "shortage" | "in_transit";
   priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
   approved: boolean;
   assignedRig: string;
   category: string;
   technicianNotes?: string;
-  source: "AI_COPILOT" | "MANUAL_SUPERVISOR";
+  source: "AI_COPILOT" | "MANUAL_SUPERVISOR" | "LANGGRAPH_COPILOT";
   createdAt: string;
 }
 
-let inMemoryWorkOrdersDb: WorkOrder[] = [
-  {
-    id: "WO-8841-HYD",
-    unit: "EX-04",
-    model: "XCMG XE4000 Mining Shovel",
-    time: "12 mins ago",
-    dtc: "SPN 1079 FMI 03 (Relief Vent Cavitation)",
-    diagnosis: "142 Hz hydraulic micro-implosion in spool valve. Delta pressure drop >35 bar across distributor pump #2.",
-    part: "Parker Spool Seal Kit #PS-902",
-    partNumber: "SAP-PARK-902-KIT",
-    inventory: "4 kits in Bay 03 (Bin B-04)",
-    inventoryStatus: "ok",
-    priority: "CRITICAL",
-    approved: false,
-    assignedRig: "Mobile Rig 3 (Lead: D. Miller)",
-    category: "Hydraulic System",
-    source: "AI_COPILOT",
-    createdAt: new Date(Date.now() - 12 * 60000).toISOString()
-  },
-  {
-    id: "WO-8839-SLW",
-    unit: "EX-12",
-    model: "XCMG XE7000 Mining Excavator",
-    time: "48 mins ago",
-    dtc: "SPN 2420 FMI 04 (Slew Bearing Harmonic Shock)",
-    diagnosis: "88 Hz radial vibration on swing gear raceway. Accelerated raceway micro-pitting detected on -140m grade.",
-    part: "Slew Ring Bearing Grease Flush & Purge Pack",
-    partNumber: "SAP-LUBE-PURGE-08",
-    inventory: "12 canisters in Bay 02 (Bin A-09)",
-    inventoryStatus: "ok",
-    priority: "HIGH",
-    approved: false,
-    assignedRig: "Mobile Rig 1 (Lead: K. Johansen)",
-    category: "Mechanical Transmission",
-    source: "AI_COPILOT",
-    createdAt: new Date(Date.now() - 48 * 60000).toISOString()
-  },
-  {
-    id: "WO-8835-CYL",
-    unit: "EX-27",
-    model: "XCMG XE2000 Mining Excavator",
-    time: "2 hours ago",
-    dtc: "SPN 1120 FMI 01 (Cylinder Internal Flow Bypass)",
-    diagnosis: "12.4 L/min internal bypass flow detected on boom cylinder descent. Wiper lip abrasion suspected.",
-    part: "Parker Wiper Lip & Head Pack #W-200",
-    partNumber: "SAP-PARK-W200-HP",
-    inventory: "Out of Stock (PO-9912 Dispatched)",
-    inventoryStatus: "shortage",
-    priority: "HIGH",
-    approved: false,
-    assignedRig: "Workshop Bay 2 (Staging)",
-    category: "Hydraulic Actuators",
-    source: "AI_COPILOT",
-    createdAt: new Date(Date.now() - 120 * 60000).toISOString()
-  }
-];
+// In-memory store (starts empty; cleared when reset is clicked)
+let inMemoryWorkOrdersDb: WorkOrder[] = [];
 
 export async function GET() {
   const supabase = getSupabaseClient();
@@ -88,7 +34,7 @@ export async function GET() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (!error && data && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         const mapped: WorkOrder[] = data.map((row: any) => ({
           id: row.id,
           unit: row.unit_id,
@@ -123,7 +69,7 @@ export async function GET() {
 
   return NextResponse.json({
     success: true,
-    source: "In-Memory Local Mode (Ready for Supabase)",
+    source: "In-Memory Local Mode",
     count: inMemoryWorkOrdersDb.length,
     workOrders: inMemoryWorkOrdersDb
   });
@@ -194,28 +140,49 @@ export async function POST(request: Request) {
   }
 }
 
+export async function DELETE() {
+  try {
+    inMemoryWorkOrdersDb = [];
+    const supabase = getSupabaseClient();
+    if (supabase && isSupabaseConfigured()) {
+      try {
+        await supabase.from("work_orders").delete().neq("id", "DUMMY_ROW");
+      } catch (err) {
+        console.warn("Supabase delete all error:", err);
+      }
+    }
+    return NextResponse.json({
+      success: true,
+      message: "All work orders cleared. Fleet queue reset to un-dispatched state.",
+      count: 0,
+      workOrders: []
+    });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    if (body.resetAll) {
-      inMemoryWorkOrdersDb.forEach(w => {
-        w.approved = false;
-        w.technicianNotes = "";
-      });
+    if (body.resetAll || body.clearAll) {
+      inMemoryWorkOrdersDb = [];
       const supabase = getSupabaseClient();
       if (supabase && isSupabaseConfigured()) {
         try {
-          await supabase.from("work_orders").update({ approved: false, technician_notes: null }).neq("id", "dummy");
+          await supabase.from("work_orders").delete().neq("id", "DUMMY_ROW");
         } catch (err) {
           console.warn("Supabase resetAll error:", err);
         }
       }
       return NextResponse.json({
         success: true,
-        message: "All work orders reset to pending critical state",
-        workOrders: inMemoryWorkOrdersDb
+        message: "All work orders cleared and reset to un-dispatched state.",
+        count: 0,
+        workOrders: []
       });
     }
+
     const { id, approved, technicianNotes } = body;
 
     const target = inMemoryWorkOrdersDb.find(w => w.id === id);
