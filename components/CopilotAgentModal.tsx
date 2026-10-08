@@ -71,7 +71,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
 
-  // Ingest live LangGraph state
+  // Ingest live copilot state
   useEffect(() => {
     if (isOpen) {
       setAnalyzing(true);
@@ -80,12 +80,12 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
       setChatMessages([]);
       setChatInput("");
 
-      // Simulated step animation while LangGraph executes
+      // Simulated step animation while copilot executes
       const s1 = setTimeout(() => setActiveStep(1), 350);
       const s2 = setTimeout(() => setActiveStep(2), 700);
       const s3 = setTimeout(() => setActiveStep(3), 1100);
 
-      // Call Next.js API route (which proxies to Python LangGraph)
+      // Call Next.js API route (which proxies to backend copilot)
       fetch("/api/agent/diagnose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -122,7 +122,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
           }
         })
         .catch(err => {
-          console.error("LangGraph agent error:", err);
+          console.error("Copilot agent error:", err);
         })
         .finally(() => {
           setTimeout(() => {
@@ -147,7 +147,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
     dtc: "SPN 520204 / FMI 14 (Cavitation Collapse)",
     component: "Hydraulic Spool Valve (Main Control Block)",
     freq: "142 Hz Peak Acoustic Resonance",
-    diagnosis: "LangGraph StateGraph indicates 142 Hz cavitation resonance and relief spool leakage under 34.8 MPa stall load against Hard Basalt.",
+    diagnosis: "Acoustic telemetry indicates 142 Hz cavitation resonance and relief spool leakage under 34.8 MPa stall load against Hard Basalt.",
     confidence: 98,
     partName: "Parker Spool Seal Kit #PS-902",
     partSapCode: "SAP-PARK-902-KIT",
@@ -244,7 +244,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
         priority: currentDiag.priority,
         partCode: currentDiag.partSapCode,
         assignedRig: currentDiag.assignedRig,
-        notes: `LangGraph Diagnosis: ${currentDiag.diagnosis}\n\nDTC: ${currentDiag.dtc}\nFrequency: ${currentDiag.freq}`
+        notes: `Diagnostic Assessment: ${currentDiag.diagnosis}\n\nDTC: ${currentDiag.dtc}\nFrequency: ${currentDiag.freq}`
       });
     }
     onClose();
@@ -262,9 +262,9 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm tracking-tight">TerraCortex LangGraph Operations Copilot</span>
+                <span className="font-bold text-sm tracking-tight">TerraCortex Operations Copilot</span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
-                  StateGraph Active
+                  Copilot Active
                 </span>
               </div>
               <div className="text-xs text-slate-300 font-sans mt-0.5">
@@ -293,7 +293,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
               </div>
 
               <div className="space-y-1">
-                <h3 className="text-sm font-bold text-slate-900">Executing LangGraph StateGraph...</h3>
+                <h3 className="text-sm font-bold text-slate-900">Executing Diagnostic Pipeline...</h3>
                 <p className="text-xs text-slate-500">Correlating sensor telemetry, SAE J1939 DTCs, and SAP stock</p>
               </div>
 
@@ -301,19 +301,19 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
               <div className="w-full max-w-sm bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-left space-y-2 mt-2">
                 <div className={`flex items-center gap-2 ${activeStep >= 1 ? "text-emerald-700 font-semibold" : "opacity-40"}`}>
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                  <span>Node 1: Ingest Telemetry &amp; 1D-CNN Strata</span>
+                  <span>Phase 1: Telemetry &amp; Strata Ingestion</span>
                 </div>
                 <div className={`flex items-center gap-2 ${activeStep >= 2 ? "text-emerald-700 font-semibold" : "opacity-40"}`}>
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                  <span>Node 2: Diagnostic &amp; SAE J1939 DTC Reasoning</span>
+                  <span>Phase 2: Diagnostic &amp; SAE J1939 Reasoning</span>
                 </div>
                 <div className={`flex items-center gap-2 ${activeStep >= 3 ? "text-emerald-700 font-semibold" : "opacity-40"}`}>
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                  <span>Node 3: Check Supabase SAP MM Inventory</span>
+                  <span>Phase 3: SAP MM Inventory Verification</span>
                 </div>
                 <div className={`flex items-center gap-2 ${activeStep >= 4 ? "text-emerald-700 font-semibold" : "opacity-40"}`}>
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                  <span>Node 4: Synthesize Dispatch &amp; Work Order</span>
+                  <span>Phase 4: Work Order &amp; Dispatch Synthesis</span>
                 </div>
               </div>
             </div>
@@ -335,7 +335,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-rose-900 font-bold">
                     <ShieldAlert className="w-4 h-4 text-rose-600" />
-                    <span>LangGraph Diagnosis &bull; {currentDiag.component}</span>
+                    <span>Diagnostic Assessment &bull; {currentDiag.component}</span>
                   </div>
                   <span className="text-[10px] bg-rose-200/80 text-rose-900 font-bold px-2 py-0.5 rounded-full font-mono">
                     {currentDiag.confidence}% Confidence
@@ -406,14 +406,14 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
                 </div>
               </div>
 
-              {/* 4. Interactive LangGraph Chat Q&A Section */}
+              {/* 4. Interactive Copilot Chat Q&A Section */}
               <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 font-bold text-slate-800">
                     <Bot className="w-4 h-4 text-indigo-600" />
-                    <span>Ask Agent Copilot (Interactive Q&amp;A)</span>
+                    <span>Ask Fleet Copilot (Interactive Q&amp;A)</span>
                   </div>
-                  <span className="text-[10px] text-slate-400 font-medium">Powered by LangGraph</span>
+                  <span className="text-[10px] text-slate-400 font-medium">Autonomous Intelligence Engine</span>
                 </div>
 
                 {/* Quick Prompts Chips */}
