@@ -11,7 +11,7 @@ export async function POST(req: Request) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ unit_id, query }),
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(60000),
       });
 
       if (pyRes.ok) {
