@@ -164,9 +164,13 @@ export async function GET() {
   const latencyJitter = Math.round(41 + Math.sin(now.getTime() / 4000) * 4);
 
   if (telemetryState.units["EX-04"]) {
-    telemetryState.units["EX-04"].hydraulic_pressure_mpa = Number((34.8 + Number(jitterP)).toFixed(1));
-    telemetryState.units["EX-04"].manifold_temp_c = Number((96.4 + Number(jitterT)).toFixed(1));
-    telemetryState.units["EX-04"].cavitation_freq_hz = 142 + jitterF;
+    const u = telemetryState.units["EX-04"];
+    const baseP = u.hydraulic_pressure_mpa ?? 18.0;
+    const baseT = u.manifold_temp_c ?? 55.0;
+    const baseF = u.cavitation_freq_hz ?? 18.0;
+    u.hydraulic_pressure_mpa = Number((baseP + Number(jitterP) * 0.2).toFixed(1));
+    u.manifold_temp_c = Number((baseT + Number(jitterT) * 0.2).toFixed(1));
+    u.cavitation_freq_hz = Math.max(10, Math.round(baseF + jitterF * 0.3));
   }
   telemetryState.latency_ms = latencyJitter;
   telemetryState.last_updated = now.toISOString();

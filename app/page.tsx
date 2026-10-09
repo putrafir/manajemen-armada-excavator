@@ -118,9 +118,10 @@ export default function Dashboard() {
 
   const ex04 = telemetry?.units["EX-04"];
   const isEx04Completed = completedUnits.includes("EX-04") || dispatchedUnits["EX-04"]?.completed;
-  const ex04Cmsi = isEx04Completed ? 38.0 : (ex04?.cmsi ?? 94.0);
-  const ex04Pressure = isEx04Completed ? 24.2 : (ex04?.hydraulic_pressure_mpa ?? 34.8);
-  const isEx04Critical = !isEx04Completed && (ex04?.status === "CRITICAL" || ex04Cmsi >= 80);
+  const ex04Cmsi = isEx04Completed ? 38.0 : (ex04?.cmsi ?? 45.0);
+  const ex04Pressure = isEx04Completed ? 18.0 : (ex04?.hydraulic_pressure_mpa ?? 18.0);
+  const isEx04Critical = !isEx04Completed && (ex04?.status === "CRITICAL" || ex04Cmsi >= 85);
+  const isEx04Warning = !isEx04Completed && !isEx04Critical && (ex04?.status === "WARNING" || ex04Cmsi >= 70);
 
   interface QueueRow {
     id: string;
@@ -145,12 +146,12 @@ export default function Dashboard() {
       isLiveSimulation: true,
       model: "XCMG XE4000 Mining Shovel",
       operator: "M. Kowalski",
-      cmsi: Math.max(94.0, ex04Cmsi),
-      primaryAnomaly: "Hydraulic Cavitation Anomaly",
-      anomalyDetail: ex04?.anomaly_detail || `Relief pressure spike (${ex04Pressure} MPa) on 184 MPa Basalt`,
+      cmsi: ex04Cmsi,
+      primaryAnomaly: isEx04Completed ? "Service Completed (Nominal)" : (ex04?.primary_anomaly || (isEx04Critical ? "Hydraulic Cavitation Anomaly" : isEx04Warning ? "Elevated Hydraulic Load" : "Normal Operating Envelope")),
+      anomalyDetail: isEx04Completed ? "Field rig service verified" : (ex04?.anomaly_detail || (isEx04Critical ? `Relief pressure spike (${ex04Pressure} MPa) on 184 MPa Basalt` : `Nominal operating envelope (${ex04Pressure} MPa)`)),
       hours: "4,210",
-      isCritical: true,
-      dotColor: "bg-red-500",
+      isCritical: isEx04Critical,
+      dotColor: isEx04Critical ? "bg-red-500" : isEx04Warning ? "bg-amber-500" : "bg-emerald-500",
     },
     {
       id: "EX-17",
