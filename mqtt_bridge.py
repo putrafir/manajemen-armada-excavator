@@ -1,3 +1,4 @@
+import os
 """
 TerraCortex — MQTT to Next.js Web Bridge
 Menghubungkan data live dari ESP32 Echa & Python AI Pipeline (test.mosquitto.org)
@@ -13,7 +14,7 @@ import urllib.request
 import urllib.error
 import paho.mqtt.client as mqtt
 
-BROKER = "test.mosquitto.org"
+BROKER = os.environ.get("MQTT_BROKER", "localhost")
 PORT = 1883
 TOPICS = [
     "terracortex/dashboard",
