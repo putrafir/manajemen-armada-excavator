@@ -270,6 +270,38 @@ export default function Dashboard() {
   const enRouteCount = scopedRaw.filter(u => dispatchedUnits[u.id] && dispatchedUnits[u.id].approved).length;
   const totalActiveWOs = stagedCount + enRouteCount;
 
+  // Real synchronized fleet metrics derived from actual telemetry & unit states
+  const totalFleetUnits = pitScope === "ALL" 
+    ? (telemetry?.total_units ?? 52) + customAssetCount 
+    : scopedRaw.length;
+
+  const criticalUnitsCount = scopedRaw.filter(
+    u => u.cmsi >= 90 && !completedUnits.includes(u.id) && !dispatchedUnits[u.id]?.completed
+  ).length;
+
+  const elevatedUnitsCount = scopedRaw.filter(
+    u => u.cmsi >= 70 && u.cmsi < 90 && !completedUnits.includes(u.id) && !dispatchedUnits[u.id]?.completed
+  ).length;
+
+  const totalActiveAnomalies = criticalUnitsCount + elevatedUnitsCount;
+
+  const activeFleetCount = Math.max(0, totalFleetUnits - criticalUnitsCount);
+  const fleetUtilizationRate = totalFleetUnits > 0 
+    ? ((activeFleetCount / totalFleetUnits) * 100).toFixed(1) 
+    : "100.0";
+
+  const averageStressIndex = scopedRaw.length > 0 
+    ? (scopedRaw.reduce((sum, u) => sum + u.cmsi, 0) / scopedRaw.length) 
+    : 38.0;
+
+  const dynamicFleetHealth = Math.max(
+    0, 
+    Math.min(
+      100, 
+      Math.round((100 - (averageStressIndex * 0.44) + (criticalUnitsCount === 0 ? 9 : 0)) * 10) / 10
+    )
+  );
+
   const filteredByDispatch = scopedRaw.filter(u => {
     const isDone = completedUnits.includes(u.id) || dispatchedUnits[u.id]?.completed;
     const info = isDone ? null : dispatchedUnits[u.id];
@@ -333,9 +365,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 2. 4 Clean HUD Metric Cards with prominent icons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Active Fleet */}
+      {/* 2. 3 Synchronized Clean HUD Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* 1. Active Fleet */}
         <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Fleet</span>
@@ -344,15 +376,15 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
-            48 <span className="text-sm text-slate-400 font-normal">/ 52 units</span>
+            {activeFleetCount} <span className="text-sm text-slate-400 font-normal">/ {totalFleetUnits} units</span>
           </div>
-          <div className="text-xs text-emerald-700 font-medium mt-2 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            92.3% Nominal Utilization
+          <div className="text-xs font-medium mt-2 flex items-center gap-1.5 text-slate-600">
+            <span className={`w-2 h-2 rounded-full ${criticalUnitsCount > 0 ? "bg-amber-500" : "bg-emerald-500"} animate-pulse`}></span>
+            <span className="text-slate-700 font-semibold">{fleetUtilizationRate}% Nominal Utilization</span>
           </div>
         </div>
 
-        {/* Fleet Health */}
+        {/* 2. Fleet Health */}
         <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Fleet Health</span>
@@ -361,73 +393,49 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
-            {isEx04Critical ? "84.2" : "88.4"} <span className="text-sm text-slate-400 font-normal">/ 100</span>
+            {dynamicFleetHealth.toFixed(1)} <span className="text-sm text-slate-400 font-normal">/ 100</span>
           </div>
-          <div className="text-xs text-slate-500 font-medium mt-2">Target baseline: 85.0+ index</div>
+          <div className="text-xs font-medium mt-2 flex items-center gap-1.5">
+            <span className={dynamicFleetHealth >= 85 ? "text-emerald-700 font-semibold" : dynamicFleetHealth >= 70 ? "text-amber-700 font-semibold" : "text-rose-700 font-semibold"}>
+              {dynamicFleetHealth >= 85 ? "Nominal baseline (85.0+ index)" : dynamicFleetHealth >= 70 ? "Elevated stress (Sub-baseline)" : "Critical fleet stress (Action required)"}
+            </span>
+          </div>
         </div>
 
-        {/* Active Anomalies */}
-        <div className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
+        {/* 3. Active Anomalies */}
+        <div 
+          onClick={() => setFilterMode(prev => prev === "pending" ? "all" : "pending")}
+          className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all cursor-pointer group"
+          title="Click to filter queue by machines needing action"
+        >
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Anomalies</span>
-            <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shadow-xs">
+            <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shadow-xs group-hover:bg-amber-600 group-hover:text-white transition-colors">
               <AlertTriangle className="w-6 h-6 stroke-[1.85]" />
             </div>
           </div>
           <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
-            {Math.max(0, (isEx04Critical ? 14 : 12) - completedUnits.length)}
+            {totalActiveAnomalies}
           </div>
           <div className="flex items-center gap-1.5 mt-2">
-            <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${isEx04Critical ? "text-rose-700 bg-rose-50 border-rose-200/70" : "text-slate-600 bg-slate-100 border-slate-200/70"
-              }`}>
-              {isEx04Critical ? "2 Critical" : "1 Critical"}
-            </span>
-            <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-amber-200/70">
-              5 Elevated
-            </span>
-          </div>
-        </div>
-
-        {/* 4. CMMS Maintenance Pipeline / Work Orders */}
-        <div 
-          onClick={() => setFilterMode(prev => prev === "staged" ? "all" : stagedCount > 0 ? "staged" : enRouteCount > 0 ? "dispatched" : "all")}
-          className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all cursor-pointer group"
-          title="Click to filter queue by CMMS dispatch status"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">CMMS Pipeline</span>
-            <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-              <Wrench className="w-6 h-6 stroke-[1.85]" />
-            </div>
-          </div>
-          <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums flex items-baseline gap-1.5">
-            {totalActiveWOs} <span className="text-sm text-slate-400 font-normal">Active Orders</span>
-          </div>
-          <div className="flex items-center gap-1.5 mt-2">
-            <span 
-              onClick={(e) => { e.stopPropagation(); setFilterMode(prev => prev === "staged" ? "all" : "staged"); }}
-              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all ${
-                filterMode === "staged"
-                  ? "bg-amber-500 text-white border-amber-600 shadow-2xs"
-                  : stagedCount > 0
-                    ? "text-amber-800 bg-amber-50 border-amber-200/70 hover:bg-amber-100"
-                    : "text-slate-500 bg-slate-50 border-slate-200/50"
-              }`}
-            >
-              {stagedCount} Awaiting CMMS
-            </span>
-            <span 
-              onClick={(e) => { e.stopPropagation(); setFilterMode(prev => prev === "dispatched" ? "all" : "dispatched"); }}
-              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all ${
-                filterMode === "dispatched"
-                  ? "bg-emerald-600 text-white border-emerald-700 shadow-2xs"
-                  : enRouteCount > 0
-                    ? "text-emerald-800 bg-emerald-50 border-emerald-200/70 hover:bg-emerald-100"
-                    : "text-slate-500 bg-slate-50 border-slate-200/50"
-              }`}
-            >
-              {enRouteCount} Dispatched
-            </span>
+            {totalActiveAnomalies === 0 ? (
+              <span className="text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-emerald-200/70">
+                All Systems Nominal
+              </span>
+            ) : (
+              <>
+                <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all ${
+                  criticalUnitsCount > 0 ? "text-rose-700 bg-rose-50 border-rose-200/70" : "text-slate-500 bg-slate-50 border-slate-200/50"
+                }`}>
+                  {criticalUnitsCount} Critical
+                </span>
+                <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all ${
+                  elevatedUnitsCount > 0 ? "text-amber-800 bg-amber-50 border-amber-200/70" : "text-slate-500 bg-slate-50 border-slate-200/50"
+                }`}>
+                  {elevatedUnitsCount} Elevated
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>
