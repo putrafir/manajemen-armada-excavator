@@ -19,7 +19,8 @@ import {
   MessageSquare,
   Bot,
   User,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle
 } from "lucide-react";
 
 interface CopilotAgentModalProps {
@@ -48,6 +49,10 @@ interface UnitDiagnosticProfile {
   operatorAlert: string;
   source?: string;
   executionTrace?: string[];
+  stockoutCritical?: boolean;
+  isSubstituted?: boolean;
+  emergencyPo?: any;
+  substitutionNote?: string;
 }
 
 
@@ -117,7 +122,11 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
               estimatedDowntime: wo.estimated_downtime || "2.5 Hours",
               operatorAlert: wo.operator_alert || "Derate hydraulic cycle.",
               source: data.source,
-              executionTrace: data.execution_trace
+              executionTrace: data.execution_trace,
+              stockoutCritical: Boolean(wo.stockout_critical || (wo.part_stock && wo.part_stock.includes("OUT OF STOCK"))),
+              isSubstituted: Boolean(wo.is_substituted),
+              emergencyPo: wo.emergency_po || null,
+              substitutionNote: wo.substitution_note || ""
             });
           }
         })
@@ -319,13 +328,21 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
             </div>
           ) : autoSuccess ? (
             <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-lg shadow-emerald-500/20">
-                <Check className="w-8 h-8 stroke-[2.5]" />
+              <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center shadow-lg ${
+                currentDiag.stockoutCritical
+                  ? "bg-rose-100 border-rose-200 text-rose-600 shadow-rose-500/20"
+                  : "bg-emerald-100 border-emerald-200 text-emerald-600 shadow-emerald-500/20"
+              }`}>
+                {currentDiag.stockoutCritical ? <AlertTriangle className="w-8 h-8 stroke-[2.5]" /> : <Check className="w-8 h-8 stroke-[2.5]" />}
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Work Order Queued to CMMS!</h3>
+              <h3 className="text-lg font-bold text-slate-900">
+                {currentDiag.stockoutCritical ? "Emergency PO Dispatched & Rig Held!" : "Work Order Queued to CMMS!"}
+              </h3>
               <p className="text-xs text-slate-600 max-w-md leading-relaxed">
-                Work order officially published to <strong>Maintenance CMMS Hub</strong>. 
-                Pending workshop planner validation to dispatch <strong>{currentDiag.assignedRig}</strong>.
+                {currentDiag.stockoutCritical
+                  ? `Emergency Expedited Purchase Order ${currentDiag.emergencyPo?.po_id || 'PO-EMG'} generated and transmitted to regional supplier. Mobile rig held on base. Machine safety lockdown directive active.`
+                  : <>Work order officially published to <strong>Maintenance CMMS Hub</strong>. Pending workshop planner validation to dispatch <strong>{currentDiag.assignedRig}</strong>.</>
+                }
               </p>
             </div>
           ) : (
@@ -360,20 +377,63 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
 
               {/* 2. Coordinated Action Plan */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* SAP Part Allocation */}
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-2 shadow-2xs">
-                  <div className="flex items-center gap-2 font-bold text-slate-800 border-b border-slate-100 pb-2">
-                    <Box className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Verified SAP MM Spare Part</span>
+                {/* SAP Part Allocation (With Autonomous Stockout & Substitution Support) */}
+                <div className={`border rounded-2xl p-4 space-y-2 shadow-2xs transition-all ${
+                  currentDiag.stockoutCritical
+                    ? "bg-rose-50/70 border-rose-300"
+                    : currentDiag.isSubstituted
+                      ? "bg-amber-50/70 border-amber-300"
+                      : "bg-white border-slate-200/90"
+                }`}>
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-2 font-bold text-slate-800">
+                      <Box className={`w-3.5 h-3.5 ${currentDiag.stockoutCritical ? "text-rose-600" : currentDiag.isSubstituted ? "text-amber-600" : "text-sky-600"}`} />
+                      <span>Verified SAP MM Spare Part</span>
+                    </div>
+                    {currentDiag.stockoutCritical ? (
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full border border-rose-300 flex items-center gap-1 animate-pulse">
+                        <AlertTriangle className="w-3 h-3" /> STOCKOUT
+                      </span>
+                    ) : currentDiag.isSubstituted ? (
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                        ⚡ OEM Substitute
+                      </span>
+                    ) : null}
                   </div>
                   <div>
                     <div className="font-bold text-slate-900 text-xs">{currentDiag.partName}</div>
                     <div className="text-[10px] text-slate-500 font-mono mt-0.5">Code: {currentDiag.partSapCode}</div>
                   </div>
-                  <div className="text-[10px] bg-sky-50 text-sky-800 p-2 rounded-lg border border-sky-100 flex items-center justify-between">
+                  <div className={`text-[10px] p-2 rounded-lg border flex items-center justify-between ${
+                    currentDiag.stockoutCritical
+                      ? "bg-rose-100/70 text-rose-900 border-rose-200 font-semibold"
+                      : currentDiag.isSubstituted
+                        ? "bg-amber-100/70 text-amber-900 border-amber-200"
+                        : "bg-sky-50 text-sky-800 border-sky-100"
+                  }`}>
                     <span>{currentDiag.inventoryLocation}</span>
                     <span className="font-bold">{currentDiag.partStock}</span>
                   </div>
+
+                  {/* Stockout Critical Emergency PO Card */}
+                  {currentDiag.stockoutCritical && (
+                    <div className="p-2 rounded-lg bg-rose-200/60 border border-rose-300 text-[10px] text-rose-950 space-y-1">
+                      <div className="font-bold flex items-center justify-between">
+                        <span>Autonomous Emergency PO:</span>
+                        <span className="font-mono bg-rose-300 px-1 rounded">{currentDiag.emergencyPo?.po_id || `PO-EMG-${currentDiag.unit.replace('-', '')}`}</span>
+                      </div>
+                      <div className="text-[9px] text-rose-800">
+                        Lead Time: <strong>{currentDiag.emergencyPo?.vendor_eta || '4-6 Hours Air Freight'}</strong> &bull; Mobilization: Rig Held at Workshop
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Substitution Badge */}
+                  {currentDiag.isSubstituted && currentDiag.substitutionNote && (
+                    <div className="p-2 rounded-lg bg-amber-100/70 border border-amber-200 text-[10px] text-amber-900 leading-snug">
+                      {currentDiag.substitutionNote}
+                    </div>
+                  )}
                 </div>
 
                 {/* Dispatch Crew & RUL */}
@@ -386,9 +446,17 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
                     <div className="font-bold text-slate-900 text-xs">{currentDiag.assignedRig}</div>
                     <div className="text-[10px] text-slate-500 mt-0.5">Estimated Service Downtime: {currentDiag.estimatedDowntime}</div>
                   </div>
-                  <div className="text-[10px] bg-amber-50 text-amber-800 p-2 rounded-lg border border-amber-100 flex items-center gap-1.5">
-                    <Clock className="w-3 h-3 text-amber-600 shrink-0" />
-                    <span>Shift Window: Immediate Work Stop Required</span>
+                  <div className={`text-[10px] p-2 rounded-lg border flex items-center gap-1.5 ${
+                    currentDiag.stockoutCritical
+                      ? "bg-rose-50 text-rose-900 border-rose-200"
+                      : "bg-amber-50 text-amber-800 border-amber-100"
+                  }`}>
+                    <Clock className={`w-3 h-3 shrink-0 ${currentDiag.stockoutCritical ? "text-rose-600" : "text-amber-600"}`} />
+                    <span>
+                      {currentDiag.stockoutCritical
+                        ? "Shift Window: Rig Held at Base • Machine Shutdown Required"
+                        : "Shift Window: Immediate Work Stop Required"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -535,10 +603,19 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
               <button
                 onClick={handleAutoDispatch}
                 disabled={submittingAuto}
-                className="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-md shadow-indigo-500/20 rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                className={`px-5 py-2 text-xs font-bold text-white shadow-md rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-2 ${
+                  currentDiag.stockoutCritical
+                    ? "bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-500 hover:to-orange-500 shadow-rose-500/20"
+                    : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-500/20"
+                }`}
               >
-                <Sparkles className="w-4 h-4" />
-                <span>{submittingAuto ? "Queueing to CMMS..." : "Authorize & Queue to CMMS Hub"}</span>
+                {currentDiag.stockoutCritical ? <AlertTriangle className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                <span>
+                  {submittingAuto
+                    ? currentDiag.stockoutCritical ? "Dispatching Emergency PO..." : "Queueing to CMMS..."
+                    : currentDiag.stockoutCritical ? "Dispatch Emergency PO & Hold Rig" : "Authorize & Queue to CMMS Hub"
+                  }
+                </span>
               </button>
             </div>
           </div>

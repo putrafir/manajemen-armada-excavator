@@ -186,6 +186,23 @@ export default function CMMSDashboard() {
     }
   };
 
+  const handleSimulateStockout = async (sapCode: string) => {
+    try {
+      const res = await fetch("/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "deduct", sapCode, qty: 999 })
+      });
+      if (res.ok) {
+        setActionNotice(`⚠️ Simulated Stockout for ${sapCode}! Stock set to 0 for Agent testing.`);
+        setTimeout(() => setActionNotice(null), 4000);
+        fetchInventory();
+      }
+    } catch (e) {
+      console.error("Error setting stockout", e);
+    }
+  };
+
   const filteredInventory = inventoryItems.filter(item =>
     item.name.toLowerCase().includes(inventorySearch.toLowerCase()) ||
     item.sapCode.toLowerCase().includes(inventorySearch.toLowerCase()) ||
@@ -779,7 +796,14 @@ export default function CMMSDashboard() {
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-slate-900">{item.name}</div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{item.fitment}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span>{item.fitment}</span>
+                          {(item as any).substituteSapCode && (
+                            <span className="text-[9px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200/80">
+                              Equiv: {(item as any).substituteSapCode}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 text-slate-600">
                         {item.location}
@@ -798,6 +822,19 @@ export default function CMMSDashboard() {
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {item.onHand > 0 ? (
+                            <button
+                              onClick={() => handleSimulateStockout(item.sapCode)}
+                              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-lg border border-rose-200 transition text-[10px] cursor-pointer"
+                              title="Set stock to 0 to test Agent stockout behavior"
+                            >
+                              Deduct to 0
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-red-600 font-bold px-1.5 py-0.5 bg-red-50 rounded border border-red-200">
+                              Stockout Active
+                            </span>
+                          )}
                           <button
                             onClick={() => handleRestock(item.sapCode)}
                             className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg border border-slate-200 transition text-[11px] cursor-pointer"

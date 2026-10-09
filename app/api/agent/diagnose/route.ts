@@ -36,6 +36,8 @@ export async function POST(req: Request) {
         estimatedDowntime: "2.5 Hours Field Service",
         confidence: 98,
         operatorAlert: "DERATE DIGGING ENVELOPE: Limit breakout angle by 30% against Hard Basalt until field crew arrives.",
+        stockoutCritical: false,
+        isSubstituted: false,
       },
       "EX-17": {
         component: "Main Relief Valve Cartridge",
@@ -49,7 +51,46 @@ export async function POST(req: Request) {
         estimatedDowntime: "3.0 Hours Valve Replacement",
         confidence: 96,
         operatorAlert: "AVOID FULL-STROKE STALL: Relief valve vibrating at high frequency. Switch digging approach.",
+        stockoutCritical: false,
+        isSubstituted: false,
       },
+      "EX-27": {
+        component: "Boom Cylinder Piston Seal Pack",
+        diagnosis: "Internal bypass drop 12.4 L/min across distributor O-rings under hard cyclic shock.",
+        dtc: "SPN 520144 / FMI 07",
+        partName: "Hallite 755 Heavy Boom Cylinder Packing Set",
+        partSapCode: "SAP-CAT-W200-EQUIV",
+        inventoryLocation: "Warehouse Bay 01 (Bin C-16)",
+        partStock: "3 Units on Shelf (OEM Substitute Ready)",
+        assignedRig: "Mobile Rig Alpha (Heavy Hydraulics)",
+        estimatedDowntime: "3.5 Hours Seal Replacement",
+        confidence: 97,
+        operatorAlert: "DERATE DIGGING ENVELOPE: Primary seal was depleted. Mobile rig dispatched with verified OEM equivalent substitute Hallite 755. Maintain low idle until crew arrives.",
+        isSubstituted: true,
+        substitutionNote: "Primary part SAP-PARK-W200-HP is out of stock. Autonomous Agent allocated OEM equivalent substitute: Hallite 755 Heavy Boom Cylinder Packing Set.",
+      },
+      "EX-31": {
+        component: "Main Hydraulic Delivery Pump Rotating Group",
+        diagnosis: "Severe pressure line excursion 33.8 MPa and cylinder block wear under bucket stall load.",
+        dtc: "SPN 520150 / FMI 00",
+        partName: "Kawasaki K3V180 Cylinder Block & Piston Set",
+        partSapCode: "SAP-PUMP-ROT-700",
+        inventoryLocation: "Warehouse Bay 04 (Heavy Rack 02)",
+        partStock: "0 Units on Shelf (OUT OF STOCK - PO-EMG-EX31 DISPATCHED)",
+        assignedRig: "Mobile Rig Alpha (HELD AT WORKSHOP - STANDBY)",
+        estimatedDowntime: "5.0 Hours Pump Rebuild (Awaiting Part)",
+        confidence: 98,
+        operatorAlert: "EMERGENCY MACHINE STANDBY / SHUTDOWN: Critical pump block is OUT OF STOCK. All field mobile rigs held at workshop. IMMEDIATELY CEASE DIGGING & SHUT DOWN HYDRAULIC PUMP. Emergency PO-EMG-EX31 dispatched to distributor (ETA: 4-6 Hours Air Freight).",
+        stockoutCritical: true,
+        emergencyPo: {
+          po_id: "PO-EMG-EX31",
+          requested_part: "Kawasaki K3V180 Cylinder Block & Piston Set",
+          sap_code: "SAP-PUMP-ROT-700",
+          vendor_eta: "4-6 Hours Air Freight",
+          urgency: "AOG / MINE DOWN CRITICAL",
+          status: "DISPATCHED TO REGIONAL DISTRIBUTOR"
+        }
+      }
     };
 
     const fb = fallbackMap[unitId] || fallbackMap["EX-04"];
@@ -83,6 +124,10 @@ export async function POST(req: Request) {
         priority: "CRITICAL",
         operator_alert: fb.operatorAlert,
         confidence: fb.confidence,
+        stockout_critical: fb.stockoutCritical,
+        is_substituted: fb.isSubstituted,
+        emergency_po: fb.emergencyPo,
+        substitution_note: fb.substitutionNote,
       }
     });
   } catch (err: any) {
