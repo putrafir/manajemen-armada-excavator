@@ -3,14 +3,15 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const unitId = body.unit_id || "EX-04";
+    const unitId = body.unit_id || body.unitId || "EX-04";
+    const normalizedBody = { ...body, unit_id: unitId };
 
     // Attempt to proxy to Python LangGraph Microservice on port 8000
     try {
       const pyRes = await fetch("http://127.0.0.1:8000/api/agent/diagnose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(normalizedBody),
         signal: AbortSignal.timeout(60000),
       });
 
