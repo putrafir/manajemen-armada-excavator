@@ -22,6 +22,9 @@ TOPICS = [
 ]
 WEB_API = "http://localhost:3000/api/telemetry"
 
+# Accumulator for gradual stress monitoring
+cumulative_bridge_state = {}
+
 def forward_to_web(payload, topic):
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -119,11 +122,33 @@ def on_message(client, userdata, msg):
         default_bucket = 30.0
         boom_angle = 40.0
 
-    # Gunakan cmsi_score & cavitation_hz langsung dari inference jika pipeline AI menyediakannya
-    final_cmsi = float(inference.get("cmsi_score")) if "cmsi_score" in inference else calc_cmsi
+    # Akumulasi stres gradual (Inersia fatigue & recovery)
+    if "cmsi_score" in inference:
+        final_cmsi = float(inference["cmsi_score"])
+        cumulative_bridge_state[source_id] = final_cmsi
+    else:
+        prev = cumulative_bridge_state.get(source_id, calc_cmsi if calc_cmsi < 65.0 else 45.0)
+        if calc_cmsi > prev:
+            smoothed = min(calc_cmsi, prev + max(4.0, (calc_cmsi - prev) * 0.30))
+        else:
+            smoothed = max(calc_cmsi, prev - max(3.5, (prev - calc_cmsi) * 0.25))
+        cumulative_bridge_state[source_id] = round(smoothed, 1)
+        final_cmsi = cumulative_bridge_state[source_id]
+
     final_cavitation = float(inference.get("cavitation_hz")) if "cavitation_hz" in inference else calc_cavitation
     action_advisory = inference.get("action_advisory") or anomaly_detail
     bucket_angle = float(raw_bucket) if raw_bucket is not None else default_bucket
+
+    # Tentukan status adaptif sesuai skor CMSI aktual
+    if final_cmsi >= 88.0:
+        status = "CRITICAL"
+        primary_anomaly = "Hydraulic Cavitation Anomaly"
+    elif final_cmsi >= 68.0:
+        status = "WARNING"
+        primary_anomaly = "Elevated Hydraulic Load"
+    else:
+        status = "NOMINAL"
+        primary_anomaly = "Normal Operating Envelope"
 
     web_payload = {
         "unit_id": "EX-04",
