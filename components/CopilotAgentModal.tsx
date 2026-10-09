@@ -332,12 +332,12 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
             <div className="space-y-4 animate-in fade-in duration-300">
               {/* 1. Diagnostic Findings Card */}
               <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-4 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-rose-900 font-bold">
-                    <ShieldAlert className="w-4 h-4 text-rose-600" />
-                    <span>Diagnostic Assessment &bull; {currentDiag.component}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-rose-900 font-bold min-w-0">
+                    <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span className="truncate">Diagnostic Assessment &bull; {currentDiag.component}</span>
                   </div>
-                  <span className="text-[10px] bg-rose-200/80 text-rose-900 font-bold px-2 py-0.5 rounded-full font-mono">
+                  <span className="text-[10px] bg-rose-200/80 text-rose-900 font-bold px-2.5 py-0.5 rounded-full font-mono whitespace-nowrap shrink-0">
                     {currentDiag.confidence}% Confidence
                   </span>
                 </div>
