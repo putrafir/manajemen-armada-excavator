@@ -18,8 +18,7 @@ BROKER = os.environ.get("MQTT_BROKER", "localhost")
 PORT = 1883
 TOPICS = [
     "terracortex/dashboard",
-    "terracortex/telemetry",
-    "terracortex/ai_results"
+    "terracortex/telemetry"
 ]
 WEB_API = "http://localhost:3000/api/telemetry"
 
