@@ -266,6 +266,10 @@ export default function Dashboard() {
     ? processedQueue 
     : processedQueue.filter(u => u.pitId === pitScope);
 
+  const stagedCount = scopedRaw.filter(u => dispatchedUnits[u.id] && !dispatchedUnits[u.id].approved).length;
+  const enRouteCount = scopedRaw.filter(u => dispatchedUnits[u.id] && dispatchedUnits[u.id].approved).length;
+  const totalActiveWOs = stagedCount + enRouteCount;
+
   const filteredByDispatch = scopedRaw.filter(u => {
     const isDone = completedUnits.includes(u.id) || dispatchedUnits[u.id]?.completed;
     const info = isDone ? null : dispatchedUnits[u.id];
@@ -384,40 +388,48 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Dynamic Critical Hold / Live Status Card */}
-        {isEx04Critical ? (
-          <div className="bg-rose-50/70 border border-rose-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-rose-700 uppercase tracking-wider">Critical Alert</span>
-              <div className="w-11 h-11 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center text-rose-600 shadow-xs">
-                <ShieldAlert className="w-6 h-6 stroke-[1.85]" />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold text-rose-900 tracking-tight">EX-04</div>
-            <div className="text-xs text-rose-700 font-medium mt-2 line-clamp-1">
-              {ex04?.anomaly_detail || "Cavitation risk (<48h RUL)"}
-            </div>
-            <div className="mt-4 pt-4 border-t border-rose-200/50 flex items-center justify-between">
-              <span className="text-[10px] text-rose-600 font-semibold uppercase tracking-wider">AI Copilot</span>
-              <button onClick={() => {setTargetUnit("EX-04"); setCopilotOpen(true);}} className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-xs font-bold shadow-md hover:from-indigo-500 hover:to-purple-500 transition cursor-pointer">
-                <Sparkles className="w-3.5 h-3.5" /> Ask Copilot
-              </button>
+        {/* 4. CMMS Maintenance Pipeline / Work Orders */}
+        <div 
+          onClick={() => setFilterMode(prev => prev === "staged" ? "all" : stagedCount > 0 ? "staged" : enRouteCount > 0 ? "dispatched" : "all")}
+          className="bg-white border border-slate-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all cursor-pointer group"
+          title="Click to filter queue by CMMS dispatch status"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">CMMS Pipeline</span>
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+              <Wrench className="w-6 h-6 stroke-[1.85]" />
             </div>
           </div>
-        ) : (
-          <div className="bg-emerald-50/70 border border-emerald-200/80 p-5 rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Live Telemetry</span>
-              <div className="w-11 h-11 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-xs">
-                <HeartPulse className="w-6 h-6 stroke-[1.85]" />
-              </div>
-            </div>
-            <div className="text-3xl font-extrabold text-emerald-900 tracking-tight">EX-04 (OK)</div>
-            <div className="text-xs text-emerald-700 font-medium mt-2">
-              {ex04Pressure} MPa &bull; Normal Envelope
-            </div>
+          <div className="text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums flex items-baseline gap-1.5">
+            {totalActiveWOs} <span className="text-sm text-slate-400 font-normal">Active Orders</span>
           </div>
-        )}
+          <div className="flex items-center gap-1.5 mt-2">
+            <span 
+              onClick={(e) => { e.stopPropagation(); setFilterMode(prev => prev === "staged" ? "all" : "staged"); }}
+              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all ${
+                filterMode === "staged"
+                  ? "bg-amber-500 text-white border-amber-600 shadow-2xs"
+                  : stagedCount > 0
+                    ? "text-amber-800 bg-amber-50 border-amber-200/70 hover:bg-amber-100"
+                    : "text-slate-500 bg-slate-50 border-slate-200/50"
+              }`}
+            >
+              {stagedCount} Awaiting CMMS
+            </span>
+            <span 
+              onClick={(e) => { e.stopPropagation(); setFilterMode(prev => prev === "dispatched" ? "all" : "dispatched"); }}
+              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all ${
+                filterMode === "dispatched"
+                  ? "bg-emerald-600 text-white border-emerald-700 shadow-2xs"
+                  : enRouteCount > 0
+                    ? "text-emerald-800 bg-emerald-50 border-emerald-200/70 hover:bg-emerald-100"
+                    : "text-slate-500 bg-slate-50 border-slate-200/50"
+              }`}
+            >
+              {enRouteCount} Dispatched
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* 3. Priority Maintenance Queue Table */}
