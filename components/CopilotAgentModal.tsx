@@ -44,7 +44,8 @@ interface UnitDiagnosticProfile {
   inventoryLocation: string;
   assignedRig: string;
   category: string;
-  priority: "CRITICAL" | "HIGH" | "MEDIUM";
+  priority: "CRITICAL" | "HIGH" | "MEDIUM" | "WARNING" | "NOMINAL";
+  noServiceNeeded?: boolean;
   estimatedDowntime: string;
   operatorAlert: string;
   source?: string;
@@ -119,6 +120,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
               assignedRig: wo.assigned_rig || "Mobile Rig Alpha (Heavy Hydraulics)",
               category: "Hydraulic System",
               priority: (wo.priority || "CRITICAL") as any,
+              noServiceNeeded: Boolean(wo.no_service_needed || diag.no_service_needed || wo.priority === "NOMINAL"),
               estimatedDowntime: wo.estimated_downtime || "2.5 Hours",
               operatorAlert: wo.operator_alert || "Derate hydraulic cycle.",
               source: data.source,
@@ -348,13 +350,37 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
           ) : (
             <div className="space-y-4 animate-in fade-in duration-300">
               {/* 1. Diagnostic Findings Card */}
-              <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-4 space-y-2.5">
+              <div className={`border rounded-2xl p-4 space-y-2.5 ${
+                currentDiag.noServiceNeeded
+                  ? "bg-emerald-50/70 border-emerald-200"
+                  : currentDiag.priority === "WARNING"
+                    ? "bg-amber-50/70 border-amber-200"
+                    : "bg-rose-50/70 border-rose-200"
+              }`}>
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-rose-900 font-bold min-w-0">
-                    <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                  <div className={`flex items-center gap-2 font-bold min-w-0 ${
+                    currentDiag.noServiceNeeded
+                      ? "text-emerald-900"
+                      : currentDiag.priority === "WARNING"
+                        ? "text-amber-900"
+                        : "text-rose-900"
+                  }`}>
+                    {currentDiag.noServiceNeeded ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : currentDiag.priority === "WARNING" ? (
+                      <Activity className="w-4 h-4 text-amber-600 shrink-0" />
+                    ) : (
+                      <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
                     <span className="truncate">Diagnostic Assessment &bull; {currentDiag.component}</span>
                   </div>
-                  <span className="text-[10px] bg-rose-200/80 text-rose-900 font-bold px-2.5 py-0.5 rounded-full font-mono whitespace-nowrap shrink-0">
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full font-mono whitespace-nowrap shrink-0 ${
+                    currentDiag.noServiceNeeded
+                      ? "bg-emerald-200/80 text-emerald-900"
+                      : currentDiag.priority === "WARNING"
+                        ? "bg-amber-200/80 text-amber-900"
+                        : "bg-rose-200/80 text-rose-900"
+                  }`}>
                     {currentDiag.confidence}% Confidence
                   </span>
                 </div>

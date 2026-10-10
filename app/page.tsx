@@ -116,12 +116,23 @@ export default function Dashboard() {
     setModalOpen(true);
   };
 
-  const ex04 = telemetry?.units["EX-04"];
+  const activeMonitoredId = (telemetry as any)?.last_active_unit || "EX-04";
+  const activeMonitoredUnit = telemetry?.units?.[activeMonitoredId] || telemetry?.units?.["EX-04"];
+  const livePressureDisplay = activeMonitoredUnit?.hydraulic_pressure_mpa ?? 18.0;
+
+  const ex01 = telemetry?.units?.["EX-01"];
+  const isEx01Completed = completedUnits.includes("EX-01") || dispatchedUnits["EX-01"]?.completed;
+  const ex01Cmsi = isEx01Completed ? 35.0 : (ex01?.cmsi ?? 38.0);
+  const ex01Pressure = isEx01Completed ? 18.0 : (ex01?.hydraulic_pressure_mpa ?? 18.0);
+  const isEx01Critical = !isEx01Completed && (ex01?.status === "CRITICAL" || ex01Cmsi >= 88);
+  const isEx01Warning = !isEx01Completed && !isEx01Critical && (ex01?.status === "WARNING" || ex01Cmsi >= 68);
+
+  const ex04 = telemetry?.units?.["EX-04"];
   const isEx04Completed = completedUnits.includes("EX-04") || dispatchedUnits["EX-04"]?.completed;
   const ex04Cmsi = isEx04Completed ? 38.0 : (ex04?.cmsi ?? 45.0);
   const ex04Pressure = isEx04Completed ? 18.0 : (ex04?.hydraulic_pressure_mpa ?? 18.0);
-  const isEx04Critical = !isEx04Completed && (ex04?.status === "CRITICAL" || ex04Cmsi >= 85);
-  const isEx04Warning = !isEx04Completed && !isEx04Critical && (ex04?.status === "WARNING" || ex04Cmsi >= 70);
+  const isEx04Critical = !isEx04Completed && (ex04?.status === "CRITICAL" || ex04Cmsi >= 88);
+  const isEx04Warning = !isEx04Completed && !isEx04Critical && (ex04?.status === "WARNING" || ex04Cmsi >= 68);
 
   interface QueueRow {
     id: string;
@@ -139,6 +150,24 @@ export default function Dashboard() {
   }
 
   const rawQueue: QueueRow[] = [
+    {
+      id: "EX-01",
+      pitId: "pit-1",
+      pitLabel: "Pit 1 North Bench (+15m RL)",
+      isLiveSimulation: true,
+      model: "XCMG XE4000 Mining Shovel",
+      operator: "B. Santoso",
+      cmsi: ex01Cmsi,
+      primaryAnomaly: isEx01Completed 
+        ? "Service Completed (Nominal)" 
+        : (ex01?.primary_anomaly || (isEx01Critical ? "Critical Machine Anomaly" : isEx01Warning ? "Elevated Hydraulic Load (Hard Strata)" : "Normal Operating Envelope")),
+      anomalyDetail: isEx01Completed 
+        ? "Nominal baseline verified" 
+        : (ex01?.anomaly_detail || (isEx01Critical ? "High stress (" + ex01Pressure + " MPa)" : isEx01Warning ? "High breakout force (" + ex01Pressure + " MPa) in Hard Basalt" : "Nominal operating envelope (" + ex01Pressure + " MPa)")),
+      hours: "3,150",
+      isCritical: isEx01Critical,
+      dotColor: isEx01Critical ? "bg-red-500" : isEx01Warning ? "bg-amber-500" : "bg-emerald-500",
+    },
     {
       id: "EX-04",
       pitId: "pit-4",
@@ -361,7 +390,7 @@ export default function Dashboard() {
           </button>
           <span className="px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-sans font-bold flex items-center gap-1.5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
             <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-            Live Telemetry: {ex04Pressure} MPa
+            Live Telemetry ({activeMonitoredId}): {livePressureDisplay} MPa
           </span>
         </div>
       </div>

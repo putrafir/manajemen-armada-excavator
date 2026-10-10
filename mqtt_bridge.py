@@ -135,7 +135,16 @@ def on_message(client, userdata, msg):
         cumulative_bridge_state[source_id] = round(smoothed, 1)
         final_cmsi = cumulative_bridge_state[source_id]
 
-    final_cavitation = float(inference.get("cavitation_hz")) if "cavitation_hz" in inference else calc_cavitation
+    raw_cav = (
+        sensors.get("cavitation_freq_hz") or 
+        sensors.get("cavitation_hz") or 
+        inference.get("cavitation_hz") or 
+        data.get("cavitation_freq_hz")
+    )
+    if raw_cav is not None:
+        final_cavitation = float(raw_cav)
+    else:
+        final_cavitation = calc_cavitation
     action_advisory = inference.get("action_advisory") or anomaly_detail
     bucket_angle = float(raw_bucket) if raw_bucket is not None else default_bucket
 
@@ -150,8 +159,11 @@ def on_message(client, userdata, msg):
         status = "NOMINAL"
         primary_anomaly = "Normal Operating Envelope"
 
+    raw_id = (data.get("excavator_id") or data.get("unit_id") or "EX-04").replace("XCMG-", "").strip().upper()
+    target_unit_id = raw_id if raw_id else "EX-04"
+
     web_payload = {
-        "unit_id": "EX-04",
+        "unit_id": target_unit_id,
         "source_id": source_id,
         "hydraulic_pressure": pressure_mpa,
         "pressure_bar": int(pressure_bar),
