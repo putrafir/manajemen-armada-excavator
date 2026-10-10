@@ -10,6 +10,7 @@ Mendukung penuh:
 """
 
 import json
+import time
 import urllib.request
 import urllib.error
 import paho.mqtt.client as mqtt
@@ -24,6 +25,7 @@ WEB_API = "http://localhost:3000/api/telemetry"
 
 # Accumulator for gradual stress monitoring
 cumulative_bridge_state = {}
+last_dashboard_timestamps = {}
 
 def forward_to_web(payload, topic):
     data = json.dumps(payload).encode("utf-8")
@@ -73,6 +75,14 @@ def on_message(client, userdata, msg):
     vibration = float(sensors.get("imu_vibration") or sensors.get("vibration") or data.get("vibration") or 1.0)
     soil_strata = inference.get("soil_strata") or data.get("soil_strata") or "NORMAL_SOFT"
     source_id = data.get("excavator_id") or data.get("unit_id") or "XCMG-EX-01"
+    norm_id = source_id.replace("XCMG-", "").strip().upper()
+
+    now_t = time.time()
+    if msg.topic == "terracortex/dashboard":
+        last_dashboard_timestamps[norm_id] = now_t
+    elif msg.topic == "terracortex/telemetry":
+        if now_t - last_dashboard_timestamps.get(norm_id, 0) < 2.5:
+            return
 
     # Support tambahan field dari request tablet Arifah & pipeline AI:
     engine_rpm = int(sensors.get("engine_rpm") or (1850 if pressure_bar >= 250 else 1250))
@@ -80,7 +90,6 @@ def on_message(client, userdata, msg):
     
     dtc_code = data.get("dtc_code") or inference.get("dtc_code") or "0x00"
     is_hard_strata = "HARD" in soil_strata.upper() or "BASALT" in soil_strata.upper()
-    is_explicit_anomaly = inference.get("is_anomaly") is True or (dtc_code != "0x00" and dtc_code != "0")
 
     raw_cav = (
         sensors.get("cavitation_freq_hz") or 
@@ -89,16 +98,36 @@ def on_message(client, userdata, msg):
         data.get("cavitation_freq_hz")
     )
 
+    # Domain Knowledge: Skenario 2 Beban Batuan Keras BUKAN KERUSAKAN MESIN
+    is_hard_rock_load = (dtc_code == "0x00" or dtc_code == "0") and (is_hard_strata or (pressure_bar >= 230.0 and pressure_bar <= 315.0)) and oil_temp < 80.0 and (not raw_cav or float(raw_cav) <= 60.0)
+    is_explicit_anomaly = (inference.get("is_anomaly") is True and not is_hard_rock_load) or (dtc_code != "0x00" and dtc_code != "0")
+
     # 1. Tentukan Skor CMSI
     if "cmsi_score" in inference:
         final_cmsi = float(inference["cmsi_score"])
         cumulative_bridge_state[source_id] = final_cmsi
+    elif is_hard_rock_load:
+        # Skenario 2: Beban Batuan Keras (Bukan Kerusakan) -> Warning band 68.0 - 74.0
+        calc_cmsi = round(68.0 + max(0.0, pressure_bar - 240.0) * 0.08, 1)
+        final_cmsi = calc_cmsi
+        cumulative_bridge_state[source_id] = final_cmsi
     elif is_explicit_anomaly or oil_temp >= 90.0 or (raw_cav and float(raw_cav) >= 100.0):
-        calc_cmsi = round(min(96.5, 91.0 + max(0.0, pressure_bar - 300.0) * 0.1), 1)
+        if "520144" in dtc_code or (pressure_bar <= 160.0 and oil_temp >= 78.0):
+            calc_cmsi = round(min(80.0, 75.0 + max(0.0, oil_temp - 75.0) * 0.4), 1)
+        elif "520198" in dtc_code or vibration >= 4.0:
+            calc_cmsi = round(min(88.0, 83.0 + max(0.0, vibration - 3.5) * 2.5), 1)
+        elif "520210" in dtc_code:
+            calc_cmsi = round(min(93.5, 86.0 + max(0.0, pressure_bar - 320.0) * 0.15), 1)
+        elif oil_temp >= 90.0 or "520301" in dtc_code:
+            calc_cmsi = round(min(96.5, 93.0 + max(0.0, oil_temp - 90.0) * 0.5), 1)
+        elif "520150" in dtc_code:
+            calc_cmsi = round(min(98.0, 95.0 + max(0.0, pressure_bar - 320.0) * 0.15), 1)
+        else:
+            calc_cmsi = round(min(96.5, 91.0 + max(0.0, pressure_bar - 300.0) * 0.1), 1)
         final_cmsi = calc_cmsi
         cumulative_bridge_state[source_id] = final_cmsi
     elif is_hard_strata or pressure_bar >= 240.0:
-        calc_cmsi = round(68.0 + max(0.0, pressure_bar - 240.0) * 0.12, 1)
+        calc_cmsi = round(68.0 + max(0.0, pressure_bar - 240.0) * 0.08, 1)
         final_cmsi = calc_cmsi
         cumulative_bridge_state[source_id] = final_cmsi
     else:
@@ -107,7 +136,13 @@ def on_message(client, userdata, msg):
         cumulative_bridge_state[source_id] = final_cmsi
 
     # 2. Tentukan Status & Anomaly Label
-    if final_cmsi >= 88.0 or is_explicit_anomaly or oil_temp >= 90.0:
+    if is_hard_rock_load:
+        status = "WARNING"
+        is_critical = False
+        default_bucket = 65.0
+        boom_angle = 36.5
+        primary_anomaly = "Elevated Hydraulic Load (Hard Basalt Strata)"
+    elif final_cmsi >= 88.0 or is_explicit_anomaly or oil_temp >= 90.0:
         status = "CRITICAL"
         is_critical = True
         default_bucket = 85.0
@@ -118,7 +153,7 @@ def on_message(client, userdata, msg):
             primary_anomaly = "Main Relief Valve Flutter"
         elif "520198" in dtc_code or vibration >= 4.0:
             primary_anomaly = "Slew Pinion Gearbox Shock"
-        elif "520144" in dtc_code or (pressure_bar <= 145.0 and oil_temp >= 80.0):
+        elif "520144" in dtc_code or (pressure_bar <= 160.0 and oil_temp >= 78.0):
             primary_anomaly = "Internal Cylinder Bypass Leakage"
         elif "520150" in dtc_code:
             primary_anomaly = "Main Pump Failure & Stockout"

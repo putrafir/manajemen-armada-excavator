@@ -25,14 +25,15 @@ export async function POST(req: Request) {
     const telemDtc = (liveTelem?.dtc_code || body.dtc_code || body.dtc || "").toString();
     const primaryAnom = (liveTelem?.primary_anomaly || "").toString();
 
+    const hasFailureDtc = telemDtc && telemDtc !== "0x00" && telemDtc !== "0";
     const isCavitation = cavHz > 100.0 || (liveTelem?.primary_anomaly && liveTelem.primary_anomaly.includes("Cavitation")) || telemDtc.includes("520204");
     const isOverheat = liveTemp >= 90.0 || (liveTelem?.manifold_temp_c && liveTelem.manifold_temp_c >= 90.0) || telemDtc.includes("520301");
     
     // Scenario 1: Nominal & Healthy
-    const isNormal = (unitId === "EX-01") || (unitId === "EX-04" && !isCavitation && !isOverheat && !telemDtc && (!primaryAnom || primaryAnom.includes("Nominal")) && livePressure < 23.0 && liveTemp < 72.0);
+    const isNormal = (unitId === "EX-01") || (unitId === "EX-04" && !isCavitation && !isOverheat && !hasFailureDtc && (!primaryAnom || primaryAnom.includes("Nominal")) && livePressure < 23.0 && liveTemp < 72.0);
     
     // Scenario 2: Hard Rock Stratum Digging Load (Bukan Kerusakan)
-    const isHardRockLoadOnly = (unitId === "EX-04" && !isCavitation && !isOverheat && !telemDtc && (primaryAnom.includes("Rock") || (livePressure >= 23.0 && livePressure <= 31.0 && liveTemp < 78.0)));
+    const isHardRockLoadOnly = (unitId === "EX-04" && !isCavitation && !isOverheat && !hasFailureDtc && (primaryAnom.includes("Rock") || primaryAnom.includes("Basalt") || primaryAnom.includes("Hard") || (livePressure >= 23.0 && livePressure <= 31.5 && liveTemp < 78.0)));
 
     // 2. Intelligent Real-Time Diagnostic Decision Engine:
     // CASE A: NOMINAL / HEALTHY (Scenario 1)

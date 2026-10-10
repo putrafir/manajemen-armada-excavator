@@ -197,7 +197,32 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
       const res = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unit_id: currentDiag.unit, query: q })
+        body: JSON.stringify({
+          unit_id: currentDiag.unit,
+          query: q,
+          context: {
+            unit_id: currentDiag.unit,
+            model: currentDiag.model,
+            diagnosis: currentDiag.diagnosis,
+            component: currentDiag.component,
+            dtc: currentDiag.dtc,
+            no_service_needed: currentDiag.noServiceNeeded,
+            shift_window: currentDiag.shiftWindow,
+            estimated_downtime: currentDiag.estimatedDowntime,
+            assigned_rig: currentDiag.assignedRig,
+            operator_alert: currentDiag.operatorAlert,
+            part_name: currentDiag.partName,
+            part_sap_code: currentDiag.partSapCode,
+            part_stock: currentDiag.partStock,
+            inventory_location: currentDiag.inventoryLocation,
+            stockout_critical: currentDiag.stockoutCritical,
+            is_substituted: currentDiag.isSubstituted,
+            emergency_po: currentDiag.emergencyPo,
+            confidence: currentDiag.confidence,
+            cmsi: currentDiag.noServiceNeeded ? 72 : (currentDiag.confidence || 94),
+            rul_hours: currentDiag.noServiceNeeded ? (currentDiag.unit === "EX-01" ? 4500 : 1200) : 28
+          }
+        })
       });
       const data = await res.json();
       if (data.reply) {
@@ -208,7 +233,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
         ...newMsgs,
         {
           sender: "copilot",
-          text: `Risk Assessment: Continued high-load operation on ${currentDiag.unit} poses cavitation rupture risk. RUL is below 28h. Standby for field crew.`
+          text: currentDiag.noServiceNeeded ? `Status Operasi (${currentDiag.unit}): Unit aman dan diizinkan tetap bekerja di pit penambangan (RUL > 1200 jam). Bukan kerusakan.` : `Risk Assessment: Continued high-load operation on ${currentDiag.unit} poses cavitation rupture risk. RUL is below 28h. Standby for field crew.`
         }
       ]);
     } finally {
@@ -349,12 +374,18 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
                 {currentDiag.stockoutCritical ? <AlertTriangle className="w-8 h-8 stroke-[2.5]" /> : <Check className="w-8 h-8 stroke-[2.5]" />}
               </div>
               <h3 className="text-lg font-bold text-slate-900">
-                {currentDiag.stockoutCritical ? "Emergency PO Dispatched & Rig Held!" : "Work Order Queued to CMMS!"}
+                {currentDiag.stockoutCritical
+                  ? "Emergency PO Dispatched & Rig Held!"
+                  : currentDiag.noServiceNeeded
+                    ? "Operational Advisory Logged to CMMS!"
+                    : "Work Order Queued to CMMS!"}
               </h3>
               <p className="text-xs text-slate-600 max-w-md leading-relaxed">
                 {currentDiag.stockoutCritical
                   ? `Emergency Expedited Purchase Order ${currentDiag.emergencyPo?.po_id || 'PO-EMG'} generated and transmitted to regional supplier. Mobile rig held on base. Machine safety lockdown directive active.`
-                  : <>Work order officially published to <strong>Maintenance CMMS Hub</strong>. Pending workshop planner validation to dispatch <strong>{currentDiag.assignedRig}</strong>.</>
+                  : currentDiag.noServiceNeeded
+                    ? <>Advisory beban kerja batuan keras resmi dicatat ke <strong>CMMS Hub Audit Trail</strong> sebagai riwayat operasional. Unit <strong>{currentDiag.unit}</strong> tetap bekerja di pit tanpa mendispatch tim bengkel.</>
+                    : <>Work order officially published to <strong>Maintenance CMMS Hub</strong>. Pending workshop planner validation to dispatch <strong>{currentDiag.assignedRig}</strong>.</>
                 }
               </p>
             </div>
@@ -634,41 +665,70 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
         {/* Modal Actions Footer */}
         {!autoSuccess && !analyzing && (
           <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-            >
-              Dismiss
-            </button>
+            {currentDiag.noServiceNeeded ? (
+              <>
+                <div className="flex items-center gap-2 text-emerald-800 text-xs font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    Unit Operational &bull; Tidak Perlu Work Order CMMS (Arahan kabin sudah aktif)
+                  </span>
+                </div>
 
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={handleEditManually}
-                className="px-4 py-2 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                title="Open Manual Form with these details pre-filled"
-              >
-                <FileEdit className="w-3.5 h-3.5 text-slate-600" />
-                <span>Customize in Manual Form</span>
-              </button>
+                <button
+                  onClick={onClose}
+                  className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Acknowledge &amp; Close</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Dismiss
+                </button>
 
-              <button
-                onClick={handleAutoDispatch}
-                disabled={submittingAuto}
-                className={`px-5 py-2 text-xs font-bold text-white shadow-md rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-2 ${
-                  currentDiag.stockoutCritical
-                    ? "bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-500 hover:to-orange-500 shadow-rose-500/20"
-                    : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-500/20"
-                }`}
-              >
-                {currentDiag.stockoutCritical ? <AlertTriangle className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-                <span>
-                  {submittingAuto
-                    ? currentDiag.stockoutCritical ? "Dispatching Emergency PO..." : "Queueing to CMMS..."
-                    : currentDiag.stockoutCritical ? "Dispatch Emergency PO & Hold Rig" : "Authorize & Queue to CMMS Hub"
-                  }
-                </span>
-              </button>
-            </div>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={handleEditManually}
+                    className="px-4 py-2 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    title="Open Manual Form with these details pre-filled"
+                  >
+                    <FileEdit className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Customize in Manual Form</span>
+                  </button>
+
+                  <button
+                    onClick={handleAutoDispatch}
+                    disabled={submittingAuto}
+                    className={`px-5 py-2 text-xs font-bold text-white shadow-md rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-2 ${
+                      currentDiag.stockoutCritical
+                        ? "bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-500 hover:to-orange-500 shadow-rose-500/20"
+                        : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-500/20"
+                    }`}
+                  >
+                    {currentDiag.stockoutCritical ? (
+                      <AlertTriangle className="w-4 h-4" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    <span>
+                      {submittingAuto
+                        ? currentDiag.stockoutCritical
+                          ? "Dispatching Emergency PO..."
+                          : "Queueing to CMMS..."
+                        : currentDiag.stockoutCritical
+                          ? "Dispatch Emergency PO & Hold Rig"
+                          : "Authorize & Queue to CMMS Hub"
+                      }
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
