@@ -22,10 +22,17 @@ export async function POST(req: Request) {
     const liveTemp = liveTelem?.manifold_temp_c ?? 55.0;
     const cavHz = liveTelem?.cavitation_freq_hz ?? 20.0;
 
-    const isCavitation = cavHz > 100.0 || (liveTelem?.primary_anomaly && liveTelem.primary_anomaly.includes("Cavitation"));
-    const isOverheat = liveTemp >= 90.0 || (liveTelem?.manifold_temp_c && liveTelem.manifold_temp_c >= 90.0);
-    const isNormal = !isCavitation && !isOverheat && livePressure < 23.0 && liveTemp < 72.0;
-    const isHardRockLoadOnly = !isCavitation && !isOverheat && livePressure >= 23.0 && livePressure <= 31.0 && liveTemp < 78.0;
+    const telemDtc = (liveTelem?.dtc_code || body.dtc_code || body.dtc || "").toString();
+    const primaryAnom = (liveTelem?.primary_anomaly || "").toString();
+
+    const isCavitation = cavHz > 100.0 || (liveTelem?.primary_anomaly && liveTelem.primary_anomaly.includes("Cavitation")) || telemDtc.includes("520204");
+    const isOverheat = liveTemp >= 90.0 || (liveTelem?.manifold_temp_c && liveTelem.manifold_temp_c >= 90.0) || telemDtc.includes("520301");
+    
+    // Scenario 1: Nominal & Healthy
+    const isNormal = (unitId === "EX-01") || (unitId === "EX-04" && !isCavitation && !isOverheat && !telemDtc && (!primaryAnom || primaryAnom.includes("Nominal")) && livePressure < 23.0 && liveTemp < 72.0);
+    
+    // Scenario 2: Hard Rock Stratum Digging Load (Bukan Kerusakan)
+    const isHardRockLoadOnly = (unitId === "EX-04" && !isCavitation && !isOverheat && !telemDtc && (primaryAnom.includes("Rock") || (livePressure >= 23.0 && livePressure <= 31.0 && liveTemp < 78.0)));
 
     // 2. Intelligent Real-Time Diagnostic Decision Engine:
     // CASE A: NOMINAL / HEALTHY (Scenario 1)
@@ -44,6 +51,7 @@ export async function POST(req: Request) {
           rul_hours: 4500,
           severity: "NOMINAL",
           no_service_needed: true,
+          shift_window: "Sesuai Kalender Rutin (PM 250 / 500 Jam)",
         },
         work_order: {
           id: `HEALTH-${unitId.replace("-", "")}`,
@@ -58,6 +66,7 @@ export async function POST(req: Request) {
           assigned_rig: "No Mobile Rig Required (Unit Operational)",
           estimated_downtime: "0.0 Hours (Active Production)",
           priority: "NOMINAL",
+          shift_window: "Sesuai Kalender Rutin (PM 250 / 500 Jam)",
           operator_alert: "OPTIMAL CYCLE: Mesin dalam kondisi prima dan beroperasi dalam batas aman. TIDAK PERLU SERVIS ATAU STOP KERJA. Lanjutkan operasi kerja normal.",
           confidence: 99,
           stockout_critical: false,
@@ -83,6 +92,7 @@ export async function POST(req: Request) {
           rul_hours: 1200,
           severity: "WARNING",
           no_service_needed: true,
+          shift_window: "Tetap Bekerja (Tanpa Interupsi Jadwal Bengkel)",
         },
         work_order: {
           id: `LOAD-${unitId.replace("-", "")}`,
@@ -97,6 +107,7 @@ export async function POST(req: Request) {
           assigned_rig: "No Rig Required (Hanya Derate Operasional Operator)",
           estimated_downtime: "0.0 Hours (Unit Tetap Bekerja di Pit)",
           priority: "WARNING",
+          shift_window: "Tetap Bekerja (Tanpa Interupsi Jadwal Bengkel)",
           operator_alert: "DERATE BREAKOUT FORCE 30%: Cukup kurangi sudut penetrasi bucket dan hindari full-stroke stall saat mencangkul batuan basalt keras untuk menjaga keausan wajar. BUKAN KERUSAKAN MESIN. TIDAK PERLU PANGGIL MONTIR / TIDAK PERLU WORK ORDER. Lanjutkan operasi.",
           confidence: 98,
           stockout_critical: false,
@@ -132,7 +143,16 @@ export async function POST(req: Request) {
 
       if (pyRes.ok) {
         const data = await pyRes.json();
-        return NextResponse.json({ ...data, source: "python_langgraph" });
+        const woDraft = data.work_order_draft || data.work_order || {};
+        const diagData = data.diagnosis_findings || data.diagnosis || {};
+        return NextResponse.json({
+          ...data,
+          source: "python_langgraph",
+          work_order: {
+            ...woDraft,
+            shift_window: woDraft.shift_window || diagData.shift_window || "Immediate Work Stop Required"
+          }
+        });
       }
     } catch {}
 
@@ -152,6 +172,7 @@ export async function POST(req: Request) {
         operatorAlert: "DERATE DIGGING ENVELOPE IMMEDIATELY: Limit breakout force by 30% and avoid full-stroke cylinder stall against Hard Basalt until Mobile Rig Alpha arrives.",
         stockoutCritical: false,
         isSubstituted: false,
+        shiftWindow: "Immediate Work Stop Required (Sekarang Juga)",
       },
       "EX-08": {
         component: "Hydraulic Oil Cooler Core & Thermostat",
@@ -167,6 +188,7 @@ export async function POST(req: Request) {
         operatorAlert: "EMERGENCY THERMAL SHUTDOWN DETIK INI JUGA: Suhu oli 96.5°C mendidih! Segera turunkan putaran mesin ke idle darurat lalu matikan kontak. Mobile Rig Beta dikirim sekarang.",
         stockoutCritical: false,
         isSubstituted: false,
+        shiftWindow: "Immediate Emergency Shutdown (Detik Ini Juga)",
       },
       "EX-17": {
         component: "Main Relief Valve Cartridge",
@@ -182,6 +204,7 @@ export async function POST(req: Request) {
         operatorAlert: "AVOID FULL-STROKE STALL: Relief valve vibrating at high frequency. Switch digging approach. Unit dijadwalkan servis saat pergantian shift jam 18:00.",
         stockoutCritical: false,
         isSubstituted: false,
+        shiftWindow: "Pukul 18:00 (Pergantian Shift Malam)",
       },
       "EX-12": {
         component: "Slew Bearing Drive Race & Pinion Shaft",
@@ -197,6 +220,7 @@ export async function POST(req: Request) {
         operatorAlert: "LIMIT SWING SPEED BY 25%: Slew pinion tooth fatigue detected. RUL 18 jam aman jika swing dibatasi. Dijadwalkan masuk workshop shift besok 06:00.",
         stockoutCritical: false,
         isSubstituted: false,
+        shiftWindow: "Shift Besok Pukul 06:00 (RUL 18 Jam Safe Tolerance)",
       },
       "EX-27": {
         component: "Boom Cylinder Piston Seal Pack",
@@ -212,6 +236,7 @@ export async function POST(req: Request) {
         operatorAlert: "DIVERT TO LIGHT TOPSOIL: Silinder bocor internal (ngempos). Alihkan ke perataan tanah ringan. Dijadwalkan pergantian seal saat istirahat siang jam 12:00 atau akhir shift 18:00.",
         isSubstituted: true,
         substitutionNote: "Primary part SAP-PARK-W200-HP is out of stock. Autonomous Agent allocated OEM equivalent substitute: Hallite 755 Heavy Boom Cylinder Packing Set.",
+        shiftWindow: "Pukul 12:00 (Istirahat Siang) atau Akhir Shift 18:00",
       },
       "EX-31": {
         component: "Main Hydraulic Delivery Pump Rotating Group",
@@ -233,7 +258,8 @@ export async function POST(req: Request) {
           vendor_eta: "4-6 Hours Air Freight",
           urgency: "AOG / MINE DOWN CRITICAL",
           status: "DISPATCHED TO REGIONAL DISTRIBUTOR"
-        }
+        },
+        shiftWindow: "Detik Ini Juga (Stop Operasi & Kirim Standby Unit)"
       }
     };
 
@@ -272,7 +298,8 @@ export async function POST(req: Request) {
         confidence: fb.confidence,
         freq: "High-Frequency Harmonic",
         rul_hours: 28,
-        severity: "CRITICAL"
+        severity: "CRITICAL",
+        shift_window: fb.shiftWindow || "Immediate Work Stop Required"
       },
       work_order: {
         id: `WO-AI-${unitId.replace("-", "")}`,
@@ -286,6 +313,7 @@ export async function POST(req: Request) {
         part_stock: fb.partStock,
         assigned_rig: fb.assignedRig,
         estimated_downtime: fb.estimatedDowntime,
+        shift_window: fb.shiftWindow || "Immediate Work Stop Required",
         priority: "CRITICAL",
         operator_alert: fb.operatorAlert,
         confidence: fb.confidence,

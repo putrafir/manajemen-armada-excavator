@@ -54,6 +54,7 @@ interface UnitDiagnosticProfile {
   isSubstituted?: boolean;
   emergencyPo?: any;
   substitutionNote?: string;
+  shiftWindow?: string;
 }
 
 
@@ -105,6 +106,15 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
             const parts = data.spare_parts || [];
             const part = parts[0] || {};
 
+            const isNoService = Boolean(
+              wo.no_service_needed ||
+              diag.no_service_needed ||
+              wo.priority === "NOMINAL" ||
+              (wo.assigned_rig && wo.assigned_rig.toLowerCase().includes("no rig")) ||
+              (wo.assigned_rig && wo.assigned_rig.toLowerCase().includes("no mobile rig")) ||
+              (wo.estimated_downtime && wo.estimated_downtime.includes("0.0 Hours"))
+            );
+
             setAgentData({
               unit: wo.unit || unitId,
               model: wo.model || "Mining Hydraulic Excavator",
@@ -120,7 +130,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
               assignedRig: wo.assigned_rig || "Mobile Rig Alpha (Heavy Hydraulics)",
               category: "Hydraulic System",
               priority: (wo.priority || "CRITICAL") as any,
-              noServiceNeeded: Boolean(wo.no_service_needed || diag.no_service_needed || wo.priority === "NOMINAL"),
+              noServiceNeeded: isNoService,
               estimatedDowntime: wo.estimated_downtime || "2.5 Hours",
               operatorAlert: wo.operator_alert || "Derate hydraulic cycle.",
               source: data.source,
@@ -128,7 +138,8 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
               stockoutCritical: Boolean(wo.stockout_critical || (wo.part_stock && wo.part_stock.includes("OUT OF STOCK"))),
               isSubstituted: Boolean(wo.is_substituted),
               emergencyPo: wo.emergency_po || null,
-              substitutionNote: wo.substitution_note || ""
+              substitutionNote: wo.substitution_note || "",
+              shiftWindow: wo.shift_window || diag.shift_window || wo.shiftWindow || ""
             });
           }
         })
@@ -473,15 +484,29 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
                     <div className="text-[10px] text-slate-500 mt-0.5">Estimated Service Downtime: {currentDiag.estimatedDowntime}</div>
                   </div>
                   <div className={`text-[10px] p-2 rounded-lg border flex items-center gap-1.5 ${
-                    currentDiag.stockoutCritical
-                      ? "bg-rose-50 text-rose-900 border-rose-200"
-                      : "bg-amber-50 text-amber-800 border-amber-100"
+                    currentDiag.noServiceNeeded
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      : currentDiag.stockoutCritical
+                        ? "bg-rose-50 text-rose-900 border-rose-200"
+                        : (currentDiag.shiftWindow && (currentDiag.shiftWindow.includes("18:00") || currentDiag.shiftWindow.includes("06:00") || currentDiag.shiftWindow.includes("12:00")))
+                          ? "bg-orange-50 text-orange-900 border-orange-200"
+                          : "bg-amber-50 text-amber-800 border-amber-100"
                   }`}>
-                    <Clock className={`w-3 h-3 shrink-0 ${currentDiag.stockoutCritical ? "text-rose-600" : "text-amber-600"}`} />
-                    <span>
-                      {currentDiag.stockoutCritical
-                        ? "Shift Window: Rig Held at Base • Machine Shutdown Required"
-                        : "Shift Window: Immediate Work Stop Required"}
+                    <Clock className={`w-3 h-3 shrink-0 ${
+                      currentDiag.noServiceNeeded
+                        ? "text-emerald-600"
+                        : currentDiag.stockoutCritical
+                          ? "text-rose-600"
+                          : (currentDiag.shiftWindow && (currentDiag.shiftWindow.includes("18:00") || currentDiag.shiftWindow.includes("06:00") || currentDiag.shiftWindow.includes("12:00")))
+                            ? "text-orange-600"
+                            : "text-amber-600"
+                    }`} />
+                    <span className="font-semibold">
+                      {currentDiag.noServiceNeeded
+                        ? `Shift Window: ${currentDiag.shiftWindow || "Tetap Bekerja (Tanpa Interupsi Jadwal Bengkel)"}`
+                        : currentDiag.stockoutCritical
+                          ? "Shift Window: Rig Held at Base • Machine Shutdown Required"
+                          : `Shift Window: ${currentDiag.shiftWindow || "Immediate Work Stop Required"}`}
                     </span>
                   </div>
                 </div>
