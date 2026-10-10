@@ -107,6 +107,7 @@ export async function POST(req: Request) {
     }
 
     // Pass live telemetry packet to Python LangGraph microservice
+    const liveDtc = liveTelem?.dtc_code || body.dtc_code || body.dtc || "0x00";
     const liveBody = {
       ...normalizedBody,
       cmsi_score: liveCmsi,
@@ -116,6 +117,7 @@ export async function POST(req: Request) {
         manifold_temp_c: liveTemp,
         cavitation_freq_hz: cavHz,
         vibe_rms_g: 1.2,
+        dtc_code: liveDtc,
       }
     };
 
@@ -235,7 +237,28 @@ export async function POST(req: Request) {
       }
     };
 
-    const fb = fallbackMap[unitId] || fallbackMap["EX-04"];
+    // Multi-Scenario Deterministic Diagnostic Selector for EX-04 Testbed:
+    let scenarioKey = unitId;
+    if (unitId === "EX-04") {
+      const telemDtc = (liveTelem?.dtc_code || body.dtc_code || body.dtc || "").toString();
+      const primaryAnom = (liveTelem?.primary_anomaly || "").toString();
+
+      if (liveTemp >= 90.0 || telemDtc.includes("520301") || primaryAnom.includes("Thermal") || primaryAnom.includes("Radiator")) {
+        scenarioKey = "EX-08"; // Scenario 4: Overheat
+      } else if (cavHz >= 150.0 || telemDtc.includes("520210") || primaryAnom.includes("Relief")) {
+        scenarioKey = "EX-17"; // Scenario 5: Relief Valve Flutter
+      } else if (telemDtc.includes("520198") || primaryAnom.includes("Slew") || primaryAnom.includes("Pinion")) {
+        scenarioKey = "EX-12"; // Scenario 6: Slew Pinion Shock
+      } else if (telemDtc.includes("520144") || primaryAnom.includes("Cylinder") || primaryAnom.includes("Bypass") || (livePressure <= 15.0 && liveTemp >= 80.0)) {
+        scenarioKey = "EX-27"; // Scenario 7: Internal Cylinder Leak
+      } else if (telemDtc.includes("520150") || primaryAnom.includes("Stockout") || primaryAnom.includes("Delivery Pump")) {
+        scenarioKey = "EX-31"; // Scenario 8: Pump Fatal & Stockout
+      } else {
+        scenarioKey = "EX-04"; // Scenario 3: Spool Valve Cavitation
+      }
+    }
+
+    const fb = fallbackMap[scenarioKey] || fallbackMap[unitId] || fallbackMap["EX-04"];
 
     return NextResponse.json({
       success: true,

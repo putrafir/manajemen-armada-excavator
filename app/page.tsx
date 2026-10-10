@@ -120,12 +120,7 @@ export default function Dashboard() {
   const activeMonitoredUnit = telemetry?.units?.[activeMonitoredId] || telemetry?.units?.["EX-04"];
   const livePressureDisplay = activeMonitoredUnit?.hydraulic_pressure_mpa ?? 18.0;
 
-  const ex01 = telemetry?.units?.["EX-01"];
-  const isEx01Completed = completedUnits.includes("EX-01") || dispatchedUnits["EX-01"]?.completed;
-  const ex01Cmsi = isEx01Completed ? 35.0 : (ex01?.cmsi ?? 38.0);
-  const ex01Pressure = isEx01Completed ? 18.0 : (ex01?.hydraulic_pressure_mpa ?? 18.0);
-  const isEx01Critical = !isEx01Completed && (ex01?.status === "CRITICAL" || ex01Cmsi >= 88);
-  const isEx01Warning = !isEx01Completed && !isEx01Critical && (ex01?.status === "WARNING" || ex01Cmsi >= 68);
+
 
   const ex04 = telemetry?.units?.["EX-04"];
   const isEx04Completed = completedUnits.includes("EX-04") || dispatchedUnits["EX-04"]?.completed;
@@ -150,24 +145,7 @@ export default function Dashboard() {
   }
 
   const rawQueue: QueueRow[] = [
-    {
-      id: "EX-01",
-      pitId: "pit-1",
-      pitLabel: "Pit 1 North Bench (+15m RL)",
-      isLiveSimulation: true,
-      model: "XCMG XE4000 Mining Shovel",
-      operator: "B. Santoso",
-      cmsi: ex01Cmsi,
-      primaryAnomaly: isEx01Completed 
-        ? "Service Completed (Nominal)" 
-        : (ex01?.primary_anomaly || (isEx01Critical ? "Critical Machine Anomaly" : isEx01Warning ? "Elevated Hydraulic Load (Hard Strata)" : "Normal Operating Envelope")),
-      anomalyDetail: isEx01Completed 
-        ? "Nominal baseline verified" 
-        : (ex01?.anomaly_detail || (isEx01Critical ? "High stress (" + ex01Pressure + " MPa)" : isEx01Warning ? "High breakout force (" + ex01Pressure + " MPa) in Hard Basalt" : "Nominal operating envelope (" + ex01Pressure + " MPa)")),
-      hours: "3,150",
-      isCritical: isEx01Critical,
-      dotColor: isEx01Critical ? "bg-red-500" : isEx01Warning ? "bg-amber-500" : "bg-emerald-500",
-    },
+
     {
       id: "EX-04",
       pitId: "pit-4",

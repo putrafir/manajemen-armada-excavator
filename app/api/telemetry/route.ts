@@ -173,22 +173,7 @@ let telemetryState: any = {
       actionLabel: "Work Order",
       isCritical: true,
     },
-    {
-      rank: "#07",
-      dotColor: "bg-emerald-500",
-      id: "EX-01",
-      model: "XCMG XE4000 Mining Shovel",
-      operator: "B. Santoso",
-      cmsi: 38.0,
-      barColor: "bg-emerald-500",
-      primaryAnomaly: "Normal Operating Envelope",
-      anomalyDetail: "Nominal circuit pressure (18.0 MPa)",
-      anomalyColor: "text-emerald-500",
-      hours: "3,150",
-      actionType: "primary",
-      actionLabel: "Nominal",
-      isCritical: false,
-    },
+
 
   ],
 };
@@ -256,25 +241,31 @@ export async function POST(request: Request) {
       if (body.primary_anomaly) u.primary_anomaly = body.primary_anomaly;
       if (body.kinematics) u.kinematics = { ...u.kinematics, ...body.kinematics };
 
-      // Update queue item for EX-04
+      // Update queue item for target unit (EX-04)
+      if (body.dtc_code) (u as any).dtc_code = body.dtc_code;
       const qItem = telemetryState.queue.find((q: any) => q.id === targetId);
       if (qItem) {
         qItem.cmsi = u.cmsi;
-        if (u.cmsi >= 90) {
+        if (body.primary_anomaly) qItem.primaryAnomaly = body.primary_anomaly;
+        if (body.anomaly_detail) qItem.anomalyDetail = body.anomaly_detail;
+        if (u.cmsi >= 88 || body.status === "CRITICAL") {
           qItem.dotColor = "bg-red-500";
           qItem.barColor = "bg-red-500";
+          qItem.anomalyColor = "text-red-500";
           qItem.isCritical = true;
-          qItem.primaryAnomaly = "Hydraulic Cavitation Anomaly";
+          qItem.primaryAnomaly = body.primary_anomaly || "Critical Machine Anomaly";
           qItem.anomalyDetail = u.anomaly_detail || `Relief pressure spike (${u.hydraulic_pressure_mpa} MPa)`;
-        } else if (u.cmsi >= 70) {
+        } else if (u.cmsi >= 65 || body.status === "WARNING") {
           qItem.dotColor = "bg-amber-500";
           qItem.barColor = "bg-amber-500";
+          qItem.anomalyColor = "text-amber-500";
           qItem.isCritical = false;
-          qItem.primaryAnomaly = "Elevated Hydraulic Load";
+          qItem.primaryAnomaly = body.primary_anomaly || "Elevated Hydraulic Load";
           qItem.anomalyDetail = u.anomaly_detail || `High line pressure (${u.hydraulic_pressure_mpa} MPa)`;
         } else {
           qItem.dotColor = "bg-emerald-500";
           qItem.barColor = "bg-emerald-500";
+          qItem.anomalyColor = "text-emerald-500";
           qItem.isCritical = false;
           qItem.primaryAnomaly = "Normal Operating Envelope";
           qItem.anomalyDetail = u.anomaly_detail || `Nominal pressure (${u.hydraulic_pressure_mpa} MPa)`;
