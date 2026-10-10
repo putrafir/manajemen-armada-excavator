@@ -10,6 +10,7 @@ Mendukung penuh:
 """
 
 import json
+import time
 import urllib.request
 import urllib.error
 import paho.mqtt.client as mqtt
@@ -24,6 +25,7 @@ WEB_API = "http://localhost:3000/api/telemetry"
 
 # Accumulator for gradual stress monitoring
 cumulative_bridge_state = {}
+last_dashboard_timestamps = {}
 
 def forward_to_web(payload, topic):
     data = json.dumps(payload).encode("utf-8")
@@ -73,86 +75,130 @@ def on_message(client, userdata, msg):
     vibration = float(sensors.get("imu_vibration") or sensors.get("vibration") or data.get("vibration") or 1.0)
     soil_strata = inference.get("soil_strata") or data.get("soil_strata") or "NORMAL_SOFT"
     source_id = data.get("excavator_id") or data.get("unit_id") or "XCMG-EX-01"
+    norm_id = source_id.replace("XCMG-", "").strip().upper()
+
+    now_t = time.time()
+    if msg.topic == "terracortex/dashboard":
+        last_dashboard_timestamps[norm_id] = now_t
+    elif msg.topic == "terracortex/telemetry":
+        if now_t - last_dashboard_timestamps.get(norm_id, 0) < 2.5:
+            return
 
     # Support tambahan field dari request tablet Arifah & pipeline AI:
     engine_rpm = int(sensors.get("engine_rpm") or (1850 if pressure_bar >= 250 else 1250))
     raw_bucket = sensors.get("bucket_angle")
     
+    dtc_code = data.get("dtc_code") or inference.get("dtc_code") or "0x00"
     is_hard_strata = "HARD" in soil_strata.upper() or "BASALT" in soil_strata.upper()
-    is_critical = (
-        inference.get("is_anomaly") is True or 
-        pressure_bar >= 285.0 or 
-        is_hard_strata or 
-        vibration >= 3.0
+
+    raw_cav = (
+        sensors.get("cavitation_freq_hz") or 
+        sensors.get("cavitation_hz") or 
+        inference.get("cavitation_hz") or 
+        data.get("cavitation_freq_hz")
     )
 
-    # Formula Kontinu Spektrum Penuh Realistis CMSI (Skala 0 - 100):
-    if is_critical or is_hard_strata or pressure_bar >= 285.0:
-        status = "CRITICAL"
-        excess = max(0.0, pressure_bar - 285.0)
-        calc_cmsi = round(min(96.5, 88.0 + excess * 0.12 + (vibration - 1.0) * 1.5), 1)
-        calc_cavitation = 142.0
-        primary_anomaly = "Hydraulic Cavitation Anomaly"
-        anomaly_detail = f"Cavitation surge ({pressure_mpa} MPa / {int(pressure_bar)} bar) in {soil_strata}"
-        default_bucket = 91.4
-        boom_angle = 34.8
-    elif pressure_bar >= 240.0:
-        status = "WARNING"
-        calc_cmsi = round(65.0 + (pressure_bar - 240.0) * 0.42, 1)
-        calc_cavitation = 68.0
-        primary_anomaly = "Elevated Hydraulic Load"
-        anomaly_detail = f"Elevated line pressure ({pressure_mpa} MPa / {int(pressure_bar)} bar)"
-        default_bucket = 55.0
-        boom_angle = 36.5
-    elif pressure_bar >= 130.0:
-        status = "NOMINAL"
-        calc_cmsi = round(29.0 + ((pressure_bar - 130.0) / 110.0) * 35.0, 1)
-        calc_cavitation = 18.0
-        primary_anomaly = "Normal Operating Envelope"
-        anomaly_detail = f"Nominal pressure ({pressure_mpa} MPa / {int(pressure_bar)} bar)"
-        default_bucket = 36.0
-        boom_angle = 38.0
-    else:
-        status = "NOMINAL"
-        ratio = max(0.0, pressure_bar / 130.0)
-        calc_cmsi = round(max(15.0, 15.0 + ratio * 13.5), 1)
-        calc_cavitation = 12.0
-        primary_anomaly = "Idle / Low Stress Standby"
-        anomaly_detail = f"Low circuit pressure ({pressure_mpa} MPa / {int(pressure_bar)} bar)"
-        default_bucket = 30.0
-        boom_angle = 40.0
+    # Domain Knowledge: Skenario 2 Beban Batuan Keras BUKAN KERUSAKAN MESIN
+    is_hard_rock_load = (dtc_code == "0x00" or dtc_code == "0") and (is_hard_strata or (pressure_bar >= 230.0 and pressure_bar <= 315.0)) and oil_temp < 80.0 and (not raw_cav or float(raw_cav) <= 60.0)
+    is_explicit_anomaly = (inference.get("is_anomaly") is True and not is_hard_rock_load) or (dtc_code != "0x00" and dtc_code != "0")
 
-    # Akumulasi stres gradual (Inersia fatigue & recovery)
+    # 1. Tentukan Skor CMSI
     if "cmsi_score" in inference:
         final_cmsi = float(inference["cmsi_score"])
         cumulative_bridge_state[source_id] = final_cmsi
-    else:
-        prev = cumulative_bridge_state.get(source_id, calc_cmsi if calc_cmsi < 65.0 else 45.0)
-        if calc_cmsi > prev:
-            smoothed = min(calc_cmsi, prev + max(4.0, (calc_cmsi - prev) * 0.30))
+    elif is_hard_rock_load:
+        # Skenario 2: Beban Batuan Keras (Bukan Kerusakan) -> Warning band 68.0 - 74.0
+        calc_cmsi = round(68.0 + max(0.0, pressure_bar - 240.0) * 0.08, 1)
+        final_cmsi = calc_cmsi
+        cumulative_bridge_state[source_id] = final_cmsi
+    elif is_explicit_anomaly or oil_temp >= 90.0 or (raw_cav and float(raw_cav) >= 100.0):
+        if "520144" in dtc_code or (pressure_bar <= 160.0 and oil_temp >= 78.0):
+            calc_cmsi = round(min(80.0, 75.0 + max(0.0, oil_temp - 75.0) * 0.4), 1)
+        elif "520198" in dtc_code or vibration >= 4.0:
+            calc_cmsi = round(min(88.0, 83.0 + max(0.0, vibration - 3.5) * 2.5), 1)
+        elif "520210" in dtc_code:
+            calc_cmsi = round(min(93.5, 86.0 + max(0.0, pressure_bar - 320.0) * 0.15), 1)
+        elif oil_temp >= 90.0 or "520301" in dtc_code:
+            calc_cmsi = round(min(96.5, 93.0 + max(0.0, oil_temp - 90.0) * 0.5), 1)
+        elif "520150" in dtc_code:
+            calc_cmsi = round(min(98.0, 95.0 + max(0.0, pressure_bar - 320.0) * 0.15), 1)
         else:
-            smoothed = max(calc_cmsi, prev - max(3.5, (prev - calc_cmsi) * 0.25))
-        cumulative_bridge_state[source_id] = round(smoothed, 1)
-        final_cmsi = cumulative_bridge_state[source_id]
+            calc_cmsi = round(min(96.5, 91.0 + max(0.0, pressure_bar - 300.0) * 0.1), 1)
+        final_cmsi = calc_cmsi
+        cumulative_bridge_state[source_id] = final_cmsi
+    elif is_hard_strata or pressure_bar >= 240.0:
+        calc_cmsi = round(68.0 + max(0.0, pressure_bar - 240.0) * 0.08, 1)
+        final_cmsi = calc_cmsi
+        cumulative_bridge_state[source_id] = final_cmsi
+    else:
+        calc_cmsi = round(28.0 + max(0.0, pressure_bar - 130.0) * 0.12, 1)
+        final_cmsi = calc_cmsi
+        cumulative_bridge_state[source_id] = final_cmsi
 
-    final_cavitation = float(inference.get("cavitation_hz")) if "cavitation_hz" in inference else calc_cavitation
-    action_advisory = inference.get("action_advisory") or anomaly_detail
-    bucket_angle = float(raw_bucket) if raw_bucket is not None else default_bucket
-
-    # Tentukan status adaptif sesuai skor CMSI aktual
-    if final_cmsi >= 88.0:
-        status = "CRITICAL"
-        primary_anomaly = "Hydraulic Cavitation Anomaly"
-    elif final_cmsi >= 68.0:
+    # 2. Tentukan Status & Anomaly Label
+    if is_hard_rock_load:
         status = "WARNING"
-        primary_anomaly = "Elevated Hydraulic Load"
+        is_critical = False
+        default_bucket = 65.0
+        boom_angle = 36.5
+        primary_anomaly = "Elevated Hydraulic Load (Hard Basalt Strata)"
+    elif final_cmsi >= 88.0 or is_explicit_anomaly or oil_temp >= 90.0:
+        status = "CRITICAL"
+        is_critical = True
+        default_bucket = 85.0
+        boom_angle = 34.8
+        if oil_temp >= 90.0 or "520301" in dtc_code:
+            primary_anomaly = "Radiator Thermal Overheat"
+        elif "520210" in dtc_code or (raw_cav and float(raw_cav) >= 150.0):
+            primary_anomaly = "Main Relief Valve Flutter"
+        elif "520198" in dtc_code or vibration >= 4.0:
+            primary_anomaly = "Slew Pinion Gearbox Shock"
+        elif "520144" in dtc_code or (pressure_bar <= 160.0 and oil_temp >= 78.0):
+            primary_anomaly = "Internal Cylinder Bypass Leakage"
+        elif "520150" in dtc_code:
+            primary_anomaly = "Main Pump Failure & Stockout"
+        else:
+            primary_anomaly = "Hydraulic Cavitation Anomaly"
+    elif final_cmsi >= 65.0 or is_hard_strata:
+        status = "WARNING"
+        is_critical = False
+        default_bucket = 65.0
+        boom_angle = 36.5
+        primary_anomaly = "Elevated Hydraulic Load (Hard Strata)"
     else:
         status = "NOMINAL"
+        is_critical = False
+        default_bucket = 35.0
+        boom_angle = 38.0
         primary_anomaly = "Normal Operating Envelope"
 
+    # 3. Frekuensi Kavitasi (Prioritaskan nilai sensor asli)
+    if raw_cav is not None:
+        final_cavitation = float(raw_cav)
+    elif status == "CRITICAL":
+        final_cavitation = 142.0
+    elif status == "WARNING":
+        final_cavitation = 35.0
+    else:
+        final_cavitation = 20.0
+
+    bucket_angle = float(raw_bucket) if raw_bucket is not None else default_bucket
+    action_advisory = inference.get("agent_directive") or inference.get("action_advisory")
+    if not action_advisory:
+        if status == "CRITICAL":
+            action_advisory = f"{primary_anomaly} ({pressure_mpa} MPa / {int(pressure_bar)} bar, {oil_temp}°C)"
+        elif status == "WARNING":
+            action_advisory = f"High breakout force ({pressure_mpa} MPa) in Hard Strata - Derate 30%"
+        else:
+            action_advisory = f"Nominal pressure ({pressure_mpa} MPa)"
+
+    raw_id = (data.get("excavator_id") or data.get("unit_id") or "EX-04").replace("XCMG-", "").strip().upper()
+    target_unit_id = raw_id if raw_id else "EX-04"
+
     web_payload = {
-        "unit_id": "EX-04",
+        "unit_id": target_unit_id,
         "source_id": source_id,
+        "dtc_code": dtc_code,
         "hydraulic_pressure": pressure_mpa,
         "pressure_bar": int(pressure_bar),
         "manifold_temp": oil_temp if oil_temp > 40 else round(oil_temp + (pressure_bar / 4.0), 1),

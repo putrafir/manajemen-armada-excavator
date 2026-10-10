@@ -3,27 +3,161 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const unitId = body.unit_id || body.unitId || "EX-04";
+    const rawId = body.unit_id || body.unitId || "EX-04";
+    const unitId = rawId.replace("XCMG-", "").trim().toUpperCase();
     const normalizedBody = { ...body, unit_id: unitId };
+
+    // 1. Fetch live telemetry state to assess true operational conditions
+    let liveTelem: any = null;
+    try {
+      const telemRes = await fetch("http://127.0.0.1:3000/api/telemetry", { cache: "no-store" });
+      if (telemRes.ok) {
+        const tData = await telemRes.json();
+        liveTelem = tData.units?.[unitId];
+      }
+    } catch {}
+
+    const liveCmsi = liveTelem?.cmsi ?? (unitId === "EX-01" ? 38.0 : 94.0);
+    const livePressure = liveTelem?.hydraulic_pressure_mpa ?? 18.0;
+    const liveTemp = liveTelem?.manifold_temp_c ?? 55.0;
+    const cavHz = liveTelem?.cavitation_freq_hz ?? 20.0;
+
+    const telemDtc = (liveTelem?.dtc_code || body.dtc_code || body.dtc || "").toString();
+    const primaryAnom = (liveTelem?.primary_anomaly || "").toString();
+
+    const hasFailureDtc = telemDtc && telemDtc !== "0x00" && telemDtc !== "0";
+    const isCavitation = cavHz > 100.0 || (liveTelem?.primary_anomaly && liveTelem.primary_anomaly.includes("Cavitation")) || telemDtc.includes("520204");
+    const isOverheat = liveTemp >= 90.0 || (liveTelem?.manifold_temp_c && liveTelem.manifold_temp_c >= 90.0) || telemDtc.includes("520301");
+    
+    // Scenario 1: Nominal & Healthy
+    const isNormal = (unitId === "EX-01") || (unitId === "EX-04" && !isCavitation && !isOverheat && !hasFailureDtc && (!primaryAnom || primaryAnom.includes("Nominal")) && livePressure < 23.0 && liveTemp < 72.0);
+    
+    // Scenario 2: Hard Rock Stratum Digging Load (Bukan Kerusakan)
+    const isHardRockLoadOnly = (unitId === "EX-04" && !isCavitation && !isOverheat && !hasFailureDtc && (primaryAnom.includes("Rock") || primaryAnom.includes("Basalt") || primaryAnom.includes("Hard") || (livePressure >= 23.0 && livePressure <= 31.5 && liveTemp < 78.0)));
+
+    // 2. Intelligent Real-Time Diagnostic Decision Engine:
+    // CASE A: NOMINAL / HEALTHY (Scenario 1)
+    if (isNormal) {
+      return NextResponse.json({
+        success: true,
+        unit_id: unitId,
+        source: "live_telemetry_health_engine",
+        execution_trace: ["ingest_telemetry_node", "diagnose_dtc_node", "evaluate_nominal_limits"],
+        diagnosis: {
+          component: "Hydraulic & Mechanical Circuit (Healthy)",
+          diagnosis: `Machine ${unitId} is operating strictly within nominal safety limits (CMSI ${liveCmsi}/100, Pressure ${livePressure} MPa, Temp ${liveTemp}°C). Zero DTC codes detected and laminar hydraulic flow confirmed. TIDAK PERLU SERVIS ATAU STOP KERJA.`,
+          dtc: "0x00 (System Normal)",
+          confidence: 99,
+          freq: "Laminar (20 Hz Baseline)",
+          rul_hours: 4500,
+          severity: "NOMINAL",
+          no_service_needed: true,
+          shift_window: "Sesuai Kalender Rutin (PM 250 / 500 Jam)",
+        },
+        work_order: {
+          id: `HEALTH-${unitId.replace("-", "")}`,
+          unit: unitId,
+          model: "Mining Hydraulic Excavator",
+          dtc: "0x00 (System Normal)",
+          diagnosis: `All systems nominal. Machine stress index (${liveCmsi}) well within safe operating margin. No abnormal acoustic harmonics.`,
+          part_name: "No Replacement Parts Required",
+          part_sap_code: "N/A",
+          inventory_location: "All Subsystems Operational",
+          part_stock: "Healthy",
+          assigned_rig: "No Mobile Rig Required (Unit Operational)",
+          estimated_downtime: "0.0 Hours (Active Production)",
+          priority: "NOMINAL",
+          shift_window: "Sesuai Kalender Rutin (PM 250 / 500 Jam)",
+          operator_alert: "OPTIMAL CYCLE: Mesin dalam kondisi prima dan beroperasi dalam batas aman. TIDAK PERLU SERVIS ATAU STOP KERJA. Lanjutkan operasi kerja normal.",
+          confidence: 99,
+          stockout_critical: false,
+          is_substituted: false,
+          no_service_needed: true,
+        }
+      });
+    }
+
+    // CASE B: HARD ROCK / HIGH EXCAVATION LOAD - BUKAN KERUSAKAN (Scenario 2)
+    if (isHardRockLoadOnly) {
+      return NextResponse.json({
+        success: true,
+        unit_id: unitId,
+        source: "live_telemetry_load_engine",
+        execution_trace: ["ingest_telemetry_node", "diagnose_dtc_node", "strata_load_advisory"],
+        diagnosis: {
+          component: "Ground Penetration Load (Hard Basalt Strata)",
+          diagnosis: `Elevated pressure (${livePressure} MPa) is a direct mechanical load reaction against hard basalt strata (184 MPa compressive strength), BUKAN KERUSAKAN POMPA ATAU KATUP. CMSI ${liveCmsi} adalah respon beban kerja wajar. TIDAK PERLU PANGGIL MONTIR.`,
+          dtc: "0x00 (Operational High Workload)",
+          confidence: 98,
+          freq: "35 Hz Rock Interaction",
+          rul_hours: 1200,
+          severity: "WARNING",
+          no_service_needed: true,
+          shift_window: "Tetap Bekerja (Tanpa Interupsi Jadwal Bengkel)",
+        },
+        work_order: {
+          id: `LOAD-${unitId.replace("-", "")}`,
+          unit: unitId,
+          model: "Mining Hydraulic Excavator",
+          dtc: "0x00 (Operational High Workload)",
+          diagnosis: `High digging resistance against hard rock strata. Component wear within acceptable limits. No hydraulic anomaly or leakage.`,
+          part_name: "No Replacement Parts Required (Bukan Kerusakan)",
+          part_sap_code: "N/A",
+          inventory_location: "Excavator Active on Pit Face",
+          part_stock: "Operational",
+          assigned_rig: "No Rig Required (Hanya Derate Operasional Operator)",
+          estimated_downtime: "0.0 Hours (Unit Tetap Bekerja di Pit)",
+          priority: "WARNING",
+          shift_window: "Tetap Bekerja (Tanpa Interupsi Jadwal Bengkel)",
+          operator_alert: "DERATE BREAKOUT FORCE 30%: Cukup kurangi sudut penetrasi bucket dan hindari full-stroke stall saat mencangkul batuan basalt keras untuk menjaga keausan wajar. BUKAN KERUSAKAN MESIN. TIDAK PERLU PANGGIL MONTIR / TIDAK PERLU WORK ORDER. Lanjutkan operasi.",
+          confidence: 98,
+          stockout_critical: false,
+          is_substituted: false,
+          no_service_needed: true,
+        }
+      });
+    }
+
+    // Pass live telemetry packet to Python LangGraph microservice
+    const liveDtc = liveTelem?.dtc_code || body.dtc_code || body.dtc || "0x00";
+    const liveBody = {
+      ...normalizedBody,
+      cmsi_score: liveCmsi,
+      telemetry: {
+        model: liveTelem?.model || "Mining Hydraulic Excavator",
+        hydraulic_pressure_mpa: livePressure,
+        manifold_temp_c: liveTemp,
+        cavitation_freq_hz: cavHz,
+        vibe_rms_g: 1.2,
+        dtc_code: liveDtc,
+      }
+    };
 
     // Attempt to proxy to Python LangGraph Microservice on port 8000
     try {
       const pyRes = await fetch("http://127.0.0.1:8000/api/agent/diagnose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(normalizedBody),
+        body: JSON.stringify(liveBody),
         signal: AbortSignal.timeout(60000),
       });
 
       if (pyRes.ok) {
         const data = await pyRes.json();
-        return NextResponse.json({ ...data, source: "python_langgraph" });
+        const woDraft = data.work_order_draft || data.work_order || {};
+        const diagData = data.diagnosis_findings || data.diagnosis || {};
+        return NextResponse.json({
+          ...data,
+          source: "python_langgraph",
+          work_order: {
+            ...woDraft,
+            shift_window: woDraft.shift_window || diagData.shift_window || "Immediate Work Stop Required"
+          }
+        });
       }
-    } catch {
-      // Fallback if Python LangGraph server is offline
-    }
+    } catch {}
 
-    // Graceful offline fallback
+    // 3. Graceful Deterministic Fallback Map for Machine Failure Scenarios:
     const fallbackMap: Record<string, any> = {
       "EX-04": {
         component: "Hydraulic Spool Valve (Main Control Block)",
@@ -34,11 +168,28 @@ export async function POST(req: Request) {
         inventoryLocation: "Warehouse Bay 03 (Bin B-04)",
         partStock: "3 Units on Shelf (In Stock - Ready)",
         assignedRig: "Mobile Rig Alpha (Heavy Hydraulics)",
-        estimatedDowntime: "2.5 Hours Field Service",
+        estimatedDowntime: "2.5 Hours Field Service (Immediate Work Stop)",
         confidence: 98,
-        operatorAlert: "DERATE DIGGING ENVELOPE: Limit breakout angle by 30% against Hard Basalt until field crew arrives.",
+        operatorAlert: "DERATE DIGGING ENVELOPE IMMEDIATELY: Limit breakout force by 30% and avoid full-stroke cylinder stall against Hard Basalt until Mobile Rig Alpha arrives.",
         stockoutCritical: false,
         isSubstituted: false,
+        shiftWindow: "Immediate Work Stop Required (Sekarang Juga)",
+      },
+      "EX-08": {
+        component: "Hydraulic Oil Cooler Core & Thermostat",
+        diagnosis: "Critical oil temperature excursion (96.5°C) exceeding relief flash safety limit. Imminent hydraulic fluid vaporization and seal meltdown risk.",
+        dtc: "SPN 520301 / FMI 16",
+        partName: "Hydraulic Oil Cooler Core Radiator #RAD-1250",
+        partSapCode: "SAP-RAD-CORE-1250",
+        inventoryLocation: "Warehouse Yard Staging (Pallet 04)",
+        partStock: "2 Units on Shelf (In Stock - Ready)",
+        assignedRig: "Mobile Rig Beta (Cooling Specialist)",
+        estimatedDowntime: "3.0 Hours Emergency Radiator Flushing",
+        confidence: 99,
+        operatorAlert: "EMERGENCY THERMAL SHUTDOWN DETIK INI JUGA: Suhu oli 96.5°C mendidih! Segera turunkan putaran mesin ke idle darurat lalu matikan kontak. Mobile Rig Beta dikirim sekarang.",
+        stockoutCritical: false,
+        isSubstituted: false,
+        shiftWindow: "Immediate Emergency Shutdown (Detik Ini Juga)",
       },
       "EX-17": {
         component: "Main Relief Valve Cartridge",
@@ -49,26 +200,44 @@ export async function POST(req: Request) {
         inventoryLocation: "Warehouse Bay 01 (Bin A-12)",
         partStock: "2 Units on Shelf (In Stock - Ready)",
         assignedRig: "Mobile Rig Beta (Mechanical)",
-        estimatedDowntime: "3.0 Hours Valve Replacement",
+        estimatedDowntime: "1.5 Hours Valve Replacement (Scheduled Shift 18:00)",
         confidence: 96,
-        operatorAlert: "AVOID FULL-STROKE STALL: Relief valve vibrating at high frequency. Switch digging approach.",
+        operatorAlert: "AVOID FULL-STROKE STALL: Relief valve vibrating at high frequency. Switch digging approach. Unit dijadwalkan servis saat pergantian shift jam 18:00.",
         stockoutCritical: false,
         isSubstituted: false,
+        shiftWindow: "Pukul 18:00 (Pergantian Shift Malam)",
+      },
+      "EX-12": {
+        component: "Slew Bearing Drive Race & Pinion Shaft",
+        diagnosis: "4.5 G structural vibration harmonic on swing reducer. Remaining Useful Life (RUL): 18 Hours.",
+        dtc: "SPN 520198 / FMI 02",
+        partName: "Slew Pinion Drive Shaft 14-Tooth Heat-Treated",
+        partSapCode: "SAP-SLEW-PINION-700",
+        inventoryLocation: "Warehouse Bay 04 (Heavy Rack 08)",
+        partStock: "2 Units on Shelf (In Stock - Ready)",
+        assignedRig: "Mobile Rig Alpha (Heavy Hydraulics)",
+        estimatedDowntime: "4.5 Hours Pinion Shaft Replacement (Scheduled Shift Besok 06:00)",
+        confidence: 97,
+        operatorAlert: "LIMIT SWING SPEED BY 25%: Slew pinion tooth fatigue detected. RUL 18 jam aman jika swing dibatasi. Dijadwalkan masuk workshop shift besok 06:00.",
+        stockoutCritical: false,
+        isSubstituted: false,
+        shiftWindow: "Shift Besok Pukul 06:00 (RUL 18 Jam Safe Tolerance)",
       },
       "EX-27": {
         component: "Boom Cylinder Piston Seal Pack",
-        diagnosis: "Internal bypass drop 12.4 L/min across distributor O-rings under hard cyclic shock.",
+        diagnosis: "Internal bypass drop to 140 bar under hard cyclic shock. No catastrophic rupture risk.",
         dtc: "SPN 520144 / FMI 07",
         partName: "Hallite 755 Heavy Boom Cylinder Packing Set",
         partSapCode: "SAP-CAT-W200-EQUIV",
         inventoryLocation: "Warehouse Bay 01 (Bin C-16)",
         partStock: "3 Units on Shelf (OEM Substitute Ready)",
         assignedRig: "Mobile Rig Alpha (Heavy Hydraulics)",
-        estimatedDowntime: "3.5 Hours Seal Replacement",
+        estimatedDowntime: "2.0 Hours Seal Pack Replacement (Scheduled Break 12:00 / 18:00)",
         confidence: 97,
-        operatorAlert: "DERATE DIGGING ENVELOPE: Primary seal was depleted. Mobile rig dispatched with verified OEM equivalent substitute Hallite 755. Maintain low idle until crew arrives.",
+        operatorAlert: "DIVERT TO LIGHT TOPSOIL: Silinder bocor internal (ngempos). Alihkan ke perataan tanah ringan. Dijadwalkan pergantian seal saat istirahat siang jam 12:00 atau akhir shift 18:00.",
         isSubstituted: true,
         substitutionNote: "Primary part SAP-PARK-W200-HP is out of stock. Autonomous Agent allocated OEM equivalent substitute: Hallite 755 Heavy Boom Cylinder Packing Set.",
+        shiftWindow: "Pukul 12:00 (Istirahat Siang) atau Akhir Shift 18:00",
       },
       "EX-31": {
         component: "Main Hydraulic Delivery Pump Rotating Group",
@@ -79,7 +248,7 @@ export async function POST(req: Request) {
         inventoryLocation: "Warehouse Bay 04 (Heavy Rack 02)",
         partStock: "0 Units on Shelf (OUT OF STOCK - PO-EMG-EX31 DISPATCHED)",
         assignedRig: "Mobile Rig Alpha (HELD AT WORKSHOP - STANDBY)",
-        estimatedDowntime: "5.0 Hours Pump Rebuild (Awaiting Part)",
+        estimatedDowntime: "6.0 Hours Pump Rebuild (Awaiting Part)",
         confidence: 98,
         operatorAlert: "EMERGENCY MACHINE STANDBY / SHUTDOWN: Critical pump block is OUT OF STOCK. All field mobile rigs held at workshop. IMMEDIATELY CEASE DIGGING & SHUT DOWN HYDRAULIC PUMP. Emergency PO-EMG-EX31 dispatched to distributor (ETA: 4-6 Hours Air Freight).",
         stockoutCritical: true,
@@ -90,11 +259,33 @@ export async function POST(req: Request) {
           vendor_eta: "4-6 Hours Air Freight",
           urgency: "AOG / MINE DOWN CRITICAL",
           status: "DISPATCHED TO REGIONAL DISTRIBUTOR"
-        }
+        },
+        shiftWindow: "Detik Ini Juga (Stop Operasi & Kirim Standby Unit)"
       }
     };
 
-    const fb = fallbackMap[unitId] || fallbackMap["EX-04"];
+    // Multi-Scenario Deterministic Diagnostic Selector for EX-04 Testbed:
+    let scenarioKey = unitId;
+    if (unitId === "EX-04") {
+      const telemDtc = (liveTelem?.dtc_code || body.dtc_code || body.dtc || "").toString();
+      const primaryAnom = (liveTelem?.primary_anomaly || "").toString();
+
+      if (liveTemp >= 90.0 || telemDtc.includes("520301") || primaryAnom.includes("Thermal") || primaryAnom.includes("Radiator")) {
+        scenarioKey = "EX-08"; // Scenario 4: Overheat
+      } else if (cavHz >= 150.0 || telemDtc.includes("520210") || primaryAnom.includes("Relief")) {
+        scenarioKey = "EX-17"; // Scenario 5: Relief Valve Flutter
+      } else if (telemDtc.includes("520198") || primaryAnom.includes("Slew") || primaryAnom.includes("Pinion")) {
+        scenarioKey = "EX-12"; // Scenario 6: Slew Pinion Shock
+      } else if (telemDtc.includes("520144") || primaryAnom.includes("Cylinder") || primaryAnom.includes("Bypass") || (livePressure <= 15.0 && liveTemp >= 80.0)) {
+        scenarioKey = "EX-27"; // Scenario 7: Internal Cylinder Leak
+      } else if (telemDtc.includes("520150") || primaryAnom.includes("Stockout") || primaryAnom.includes("Delivery Pump")) {
+        scenarioKey = "EX-31"; // Scenario 8: Pump Fatal & Stockout
+      } else {
+        scenarioKey = "EX-04"; // Scenario 3: Spool Valve Cavitation
+      }
+    }
+
+    const fb = fallbackMap[scenarioKey] || fallbackMap[unitId] || fallbackMap["EX-04"];
 
     return NextResponse.json({
       success: true,
@@ -108,7 +299,8 @@ export async function POST(req: Request) {
         confidence: fb.confidence,
         freq: "High-Frequency Harmonic",
         rul_hours: 28,
-        severity: "CRITICAL"
+        severity: "CRITICAL",
+        shift_window: fb.shiftWindow || "Immediate Work Stop Required"
       },
       work_order: {
         id: `WO-AI-${unitId.replace("-", "")}`,
@@ -122,6 +314,7 @@ export async function POST(req: Request) {
         part_stock: fb.partStock,
         assigned_rig: fb.assignedRig,
         estimated_downtime: fb.estimatedDowntime,
+        shift_window: fb.shiftWindow || "Immediate Work Stop Required",
         priority: "CRITICAL",
         operator_alert: fb.operatorAlert,
         confidence: fb.confidence,

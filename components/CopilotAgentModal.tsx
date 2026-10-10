@@ -44,7 +44,8 @@ interface UnitDiagnosticProfile {
   inventoryLocation: string;
   assignedRig: string;
   category: string;
-  priority: "CRITICAL" | "HIGH" | "MEDIUM";
+  priority: "CRITICAL" | "HIGH" | "MEDIUM" | "WARNING" | "NOMINAL";
+  noServiceNeeded?: boolean;
   estimatedDowntime: string;
   operatorAlert: string;
   source?: string;
@@ -53,6 +54,7 @@ interface UnitDiagnosticProfile {
   isSubstituted?: boolean;
   emergencyPo?: any;
   substitutionNote?: string;
+  shiftWindow?: string;
 }
 
 
@@ -104,6 +106,15 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
             const parts = data.spare_parts || [];
             const part = parts[0] || {};
 
+            const isNoService = Boolean(
+              wo.no_service_needed ||
+              diag.no_service_needed ||
+              wo.priority === "NOMINAL" ||
+              (wo.assigned_rig && wo.assigned_rig.toLowerCase().includes("no rig")) ||
+              (wo.assigned_rig && wo.assigned_rig.toLowerCase().includes("no mobile rig")) ||
+              (wo.estimated_downtime && wo.estimated_downtime.includes("0.0 Hours"))
+            );
+
             setAgentData({
               unit: wo.unit || unitId,
               model: wo.model || "Mining Hydraulic Excavator",
@@ -119,6 +130,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
               assignedRig: wo.assigned_rig || "Mobile Rig Alpha (Heavy Hydraulics)",
               category: "Hydraulic System",
               priority: (wo.priority || "CRITICAL") as any,
+              noServiceNeeded: isNoService,
               estimatedDowntime: wo.estimated_downtime || "2.5 Hours",
               operatorAlert: wo.operator_alert || "Derate hydraulic cycle.",
               source: data.source,
@@ -126,7 +138,8 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
               stockoutCritical: Boolean(wo.stockout_critical || (wo.part_stock && wo.part_stock.includes("OUT OF STOCK"))),
               isSubstituted: Boolean(wo.is_substituted),
               emergencyPo: wo.emergency_po || null,
-              substitutionNote: wo.substitution_note || ""
+              substitutionNote: wo.substitution_note || "",
+              shiftWindow: wo.shift_window || diag.shift_window || wo.shiftWindow || ""
             });
           }
         })
@@ -184,7 +197,32 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
       const res = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unit_id: currentDiag.unit, query: q })
+        body: JSON.stringify({
+          unit_id: currentDiag.unit,
+          query: q,
+          context: {
+            unit_id: currentDiag.unit,
+            model: currentDiag.model,
+            diagnosis: currentDiag.diagnosis,
+            component: currentDiag.component,
+            dtc: currentDiag.dtc,
+            no_service_needed: currentDiag.noServiceNeeded,
+            shift_window: currentDiag.shiftWindow,
+            estimated_downtime: currentDiag.estimatedDowntime,
+            assigned_rig: currentDiag.assignedRig,
+            operator_alert: currentDiag.operatorAlert,
+            part_name: currentDiag.partName,
+            part_sap_code: currentDiag.partSapCode,
+            part_stock: currentDiag.partStock,
+            inventory_location: currentDiag.inventoryLocation,
+            stockout_critical: currentDiag.stockoutCritical,
+            is_substituted: currentDiag.isSubstituted,
+            emergency_po: currentDiag.emergencyPo,
+            confidence: currentDiag.confidence,
+            cmsi: currentDiag.noServiceNeeded ? 72 : (currentDiag.confidence || 94),
+            rul_hours: currentDiag.noServiceNeeded ? (currentDiag.unit === "EX-01" ? 4500 : 1200) : 28
+          }
+        })
       });
       const data = await res.json();
       if (data.reply) {
@@ -195,7 +233,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
         ...newMsgs,
         {
           sender: "copilot",
-          text: `Risk Assessment: Continued high-load operation on ${currentDiag.unit} poses cavitation rupture risk. RUL is below 28h. Standby for field crew.`
+          text: currentDiag.noServiceNeeded ? `Status Operasi (${currentDiag.unit}): Unit aman dan diizinkan tetap bekerja di pit penambangan (RUL > 1200 jam). Bukan kerusakan.` : `Risk Assessment: Continued high-load operation on ${currentDiag.unit} poses cavitation rupture risk. RUL is below 28h. Standby for field crew.`
         }
       ]);
     } finally {
@@ -336,25 +374,55 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
                 {currentDiag.stockoutCritical ? <AlertTriangle className="w-8 h-8 stroke-[2.5]" /> : <Check className="w-8 h-8 stroke-[2.5]" />}
               </div>
               <h3 className="text-lg font-bold text-slate-900">
-                {currentDiag.stockoutCritical ? "Emergency PO Dispatched & Rig Held!" : "Work Order Queued to CMMS!"}
+                {currentDiag.stockoutCritical
+                  ? "Emergency PO Dispatched & Rig Held!"
+                  : currentDiag.noServiceNeeded
+                    ? "Operational Advisory Logged to CMMS!"
+                    : "Work Order Queued to CMMS!"}
               </h3>
               <p className="text-xs text-slate-600 max-w-md leading-relaxed">
                 {currentDiag.stockoutCritical
                   ? `Emergency Expedited Purchase Order ${currentDiag.emergencyPo?.po_id || 'PO-EMG'} generated and transmitted to regional supplier. Mobile rig held on base. Machine safety lockdown directive active.`
-                  : <>Work order officially published to <strong>Maintenance CMMS Hub</strong>. Pending workshop planner validation to dispatch <strong>{currentDiag.assignedRig}</strong>.</>
+                  : currentDiag.noServiceNeeded
+                    ? <>Advisory beban kerja batuan keras resmi dicatat ke <strong>CMMS Hub Audit Trail</strong> sebagai riwayat operasional. Unit <strong>{currentDiag.unit}</strong> tetap bekerja di pit tanpa mendispatch tim bengkel.</>
+                    : <>Work order officially published to <strong>Maintenance CMMS Hub</strong>. Pending workshop planner validation to dispatch <strong>{currentDiag.assignedRig}</strong>.</>
                 }
               </p>
             </div>
           ) : (
             <div className="space-y-4 animate-in fade-in duration-300">
               {/* 1. Diagnostic Findings Card */}
-              <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-4 space-y-2.5">
+              <div className={`border rounded-2xl p-4 space-y-2.5 ${
+                currentDiag.noServiceNeeded
+                  ? "bg-emerald-50/70 border-emerald-200"
+                  : currentDiag.priority === "WARNING"
+                    ? "bg-amber-50/70 border-amber-200"
+                    : "bg-rose-50/70 border-rose-200"
+              }`}>
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-rose-900 font-bold min-w-0">
-                    <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                  <div className={`flex items-center gap-2 font-bold min-w-0 ${
+                    currentDiag.noServiceNeeded
+                      ? "text-emerald-900"
+                      : currentDiag.priority === "WARNING"
+                        ? "text-amber-900"
+                        : "text-rose-900"
+                  }`}>
+                    {currentDiag.noServiceNeeded ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : currentDiag.priority === "WARNING" ? (
+                      <Activity className="w-4 h-4 text-amber-600 shrink-0" />
+                    ) : (
+                      <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
                     <span className="truncate">Diagnostic Assessment &bull; {currentDiag.component}</span>
                   </div>
-                  <span className="text-[10px] bg-rose-200/80 text-rose-900 font-bold px-2.5 py-0.5 rounded-full font-mono whitespace-nowrap shrink-0">
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full font-mono whitespace-nowrap shrink-0 ${
+                    currentDiag.noServiceNeeded
+                      ? "bg-emerald-200/80 text-emerald-900"
+                      : currentDiag.priority === "WARNING"
+                        ? "bg-amber-200/80 text-amber-900"
+                        : "bg-rose-200/80 text-rose-900"
+                  }`}>
                     {currentDiag.confidence}% Confidence
                   </span>
                 </div>
@@ -447,15 +515,29 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
                     <div className="text-[10px] text-slate-500 mt-0.5">Estimated Service Downtime: {currentDiag.estimatedDowntime}</div>
                   </div>
                   <div className={`text-[10px] p-2 rounded-lg border flex items-center gap-1.5 ${
-                    currentDiag.stockoutCritical
-                      ? "bg-rose-50 text-rose-900 border-rose-200"
-                      : "bg-amber-50 text-amber-800 border-amber-100"
+                    currentDiag.noServiceNeeded
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      : currentDiag.stockoutCritical
+                        ? "bg-rose-50 text-rose-900 border-rose-200"
+                        : (currentDiag.shiftWindow && (currentDiag.shiftWindow.includes("18:00") || currentDiag.shiftWindow.includes("06:00") || currentDiag.shiftWindow.includes("12:00")))
+                          ? "bg-orange-50 text-orange-900 border-orange-200"
+                          : "bg-amber-50 text-amber-800 border-amber-100"
                   }`}>
-                    <Clock className={`w-3 h-3 shrink-0 ${currentDiag.stockoutCritical ? "text-rose-600" : "text-amber-600"}`} />
-                    <span>
-                      {currentDiag.stockoutCritical
-                        ? "Shift Window: Rig Held at Base • Machine Shutdown Required"
-                        : "Shift Window: Immediate Work Stop Required"}
+                    <Clock className={`w-3 h-3 shrink-0 ${
+                      currentDiag.noServiceNeeded
+                        ? "text-emerald-600"
+                        : currentDiag.stockoutCritical
+                          ? "text-rose-600"
+                          : (currentDiag.shiftWindow && (currentDiag.shiftWindow.includes("18:00") || currentDiag.shiftWindow.includes("06:00") || currentDiag.shiftWindow.includes("12:00")))
+                            ? "text-orange-600"
+                            : "text-amber-600"
+                    }`} />
+                    <span className="font-semibold">
+                      {currentDiag.noServiceNeeded
+                        ? `Shift Window: ${currentDiag.shiftWindow || "Tetap Bekerja (Tanpa Interupsi Jadwal Bengkel)"}`
+                        : currentDiag.stockoutCritical
+                          ? "Shift Window: Rig Held at Base • Machine Shutdown Required"
+                          : `Shift Window: ${currentDiag.shiftWindow || "Immediate Work Stop Required"}`}
                     </span>
                   </div>
                 </div>
@@ -583,41 +665,70 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
         {/* Modal Actions Footer */}
         {!autoSuccess && !analyzing && (
           <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-            >
-              Dismiss
-            </button>
+            {currentDiag.noServiceNeeded ? (
+              <>
+                <div className="flex items-center gap-2 text-emerald-800 text-xs font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    Unit Operational &bull; Tidak Perlu Work Order CMMS (Arahan kabin sudah aktif)
+                  </span>
+                </div>
 
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={handleEditManually}
-                className="px-4 py-2 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                title="Open Manual Form with these details pre-filled"
-              >
-                <FileEdit className="w-3.5 h-3.5 text-slate-600" />
-                <span>Customize in Manual Form</span>
-              </button>
+                <button
+                  onClick={onClose}
+                  className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Acknowledge &amp; Close</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Dismiss
+                </button>
 
-              <button
-                onClick={handleAutoDispatch}
-                disabled={submittingAuto}
-                className={`px-5 py-2 text-xs font-bold text-white shadow-md rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-2 ${
-                  currentDiag.stockoutCritical
-                    ? "bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-500 hover:to-orange-500 shadow-rose-500/20"
-                    : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-500/20"
-                }`}
-              >
-                {currentDiag.stockoutCritical ? <AlertTriangle className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-                <span>
-                  {submittingAuto
-                    ? currentDiag.stockoutCritical ? "Dispatching Emergency PO..." : "Queueing to CMMS..."
-                    : currentDiag.stockoutCritical ? "Dispatch Emergency PO & Hold Rig" : "Authorize & Queue to CMMS Hub"
-                  }
-                </span>
-              </button>
-            </div>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={handleEditManually}
+                    className="px-4 py-2 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    title="Open Manual Form with these details pre-filled"
+                  >
+                    <FileEdit className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Customize in Manual Form</span>
+                  </button>
+
+                  <button
+                    onClick={handleAutoDispatch}
+                    disabled={submittingAuto}
+                    className={`px-5 py-2 text-xs font-bold text-white shadow-md rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-2 ${
+                      currentDiag.stockoutCritical
+                        ? "bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-500 hover:to-orange-500 shadow-rose-500/20"
+                        : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-500/20"
+                    }`}
+                  >
+                    {currentDiag.stockoutCritical ? (
+                      <AlertTriangle className="w-4 h-4" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    <span>
+                      {submittingAuto
+                        ? currentDiag.stockoutCritical
+                          ? "Dispatching Emergency PO..."
+                          : "Queueing to CMMS..."
+                        : currentDiag.stockoutCritical
+                          ? "Dispatch Emergency PO & Hold Rig"
+                          : "Authorize & Queue to CMMS Hub"
+                      }
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

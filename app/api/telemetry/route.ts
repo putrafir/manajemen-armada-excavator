@@ -33,7 +33,28 @@ let telemetryState: any = {
       },
       work_zone: "Sector 4 North Bench (184 MPa Basalt)",
     },
-    "EX-12": {
+        "EX-01": {
+      model: "XCMG XE4000 Mining Shovel",
+      serial: "TC-EX01-STD",
+      operator: "B. Santoso",
+      status: "NOMINAL",
+      cmsi: 38.0,
+      hours: "3,150",
+      primary_anomaly: "Normal Operating Envelope",
+      anomaly_detail: "Nominal circuit pressure (18.0 MPa)",
+      hydraulic_pressure_mpa: 18.0,
+      relief_threshold_pct: 55,
+      manifold_temp_c: 55.0,
+      cavitation_freq_hz: 20.0,
+      kinematics: {
+        boom_angle: 35.0,
+        arm_reach: 8.5,
+        bucket_angle: 35.0,
+        slew_speed: 6.2,
+      },
+      work_zone: "Sector 1 Soft Overburden (Pit 1)",
+    },
+"EX-12": {
       model: "XCMG XE7000 Mining Excavator",
       serial: "TC-9102-KM",
       operator: "R. Chen",
@@ -152,6 +173,8 @@ let telemetryState: any = {
       actionLabel: "Work Order",
       isCritical: true,
     },
+
+
   ],
 };
 
@@ -183,6 +206,30 @@ export async function POST(request: Request) {
     const body = await request.json();
     const targetId = body.unit_id || "EX-04";
 
+    if (!telemetryState.units[targetId]) {
+      telemetryState.units[targetId] = {
+        model: "XCMG XE4000 Mining Shovel",
+        serial: "TC-" + targetId + "-STD",
+        operator: "M. Kowalski",
+        status: body.status || "NOMINAL",
+        cmsi: Number(body.cmsi || 40),
+        hours: "3,200",
+        primary_anomaly: body.primary_anomaly || "Normal Operating Envelope",
+        anomaly_detail: body.anomaly_detail || "Nominal parameters",
+        hydraulic_pressure_mpa: Number(body.hydraulic_pressure || 18.0),
+        relief_threshold_pct: 60,
+        manifold_temp_c: Number(body.manifold_temp || 55.0),
+        cavitation_freq_hz: Number(body.cavitation_freq || 20.0),
+        kinematics: body.kinematics || {
+          boom_angle: 35.0,
+          arm_reach: 8.5,
+          bucket_angle: 35.0,
+          slew_speed: 6.0,
+        },
+        work_zone: "Pit Sector Work Face",
+      };
+    }
+
     if (telemetryState.units[targetId]) {
       const u = telemetryState.units[targetId];
       if (body.hydraulic_pressure !== undefined) u.hydraulic_pressure_mpa = Number(body.hydraulic_pressure);
@@ -194,25 +241,31 @@ export async function POST(request: Request) {
       if (body.primary_anomaly) u.primary_anomaly = body.primary_anomaly;
       if (body.kinematics) u.kinematics = { ...u.kinematics, ...body.kinematics };
 
-      // Update queue item for EX-04
+      // Update queue item for target unit (EX-04)
+      if (body.dtc_code) (u as any).dtc_code = body.dtc_code;
       const qItem = telemetryState.queue.find((q: any) => q.id === targetId);
       if (qItem) {
         qItem.cmsi = u.cmsi;
-        if (u.cmsi >= 90) {
+        if (body.primary_anomaly) qItem.primaryAnomaly = body.primary_anomaly;
+        if (body.anomaly_detail) qItem.anomalyDetail = body.anomaly_detail;
+        if (u.cmsi >= 88 || body.status === "CRITICAL") {
           qItem.dotColor = "bg-red-500";
           qItem.barColor = "bg-red-500";
+          qItem.anomalyColor = "text-red-500";
           qItem.isCritical = true;
-          qItem.primaryAnomaly = "Hydraulic Cavitation Anomaly";
+          qItem.primaryAnomaly = body.primary_anomaly || "Critical Machine Anomaly";
           qItem.anomalyDetail = u.anomaly_detail || `Relief pressure spike (${u.hydraulic_pressure_mpa} MPa)`;
-        } else if (u.cmsi >= 70) {
+        } else if (u.cmsi >= 65 || body.status === "WARNING") {
           qItem.dotColor = "bg-amber-500";
           qItem.barColor = "bg-amber-500";
+          qItem.anomalyColor = "text-amber-500";
           qItem.isCritical = false;
-          qItem.primaryAnomaly = "Elevated Hydraulic Load";
+          qItem.primaryAnomaly = body.primary_anomaly || "Elevated Hydraulic Load";
           qItem.anomalyDetail = u.anomaly_detail || `High line pressure (${u.hydraulic_pressure_mpa} MPa)`;
         } else {
           qItem.dotColor = "bg-emerald-500";
           qItem.barColor = "bg-emerald-500";
+          qItem.anomalyColor = "text-emerald-500";
           qItem.isCritical = false;
           qItem.primaryAnomaly = "Normal Operating Envelope";
           qItem.anomalyDetail = u.anomaly_detail || `Nominal pressure (${u.hydraulic_pressure_mpa} MPa)`;
@@ -226,6 +279,7 @@ export async function POST(request: Request) {
       q.rank = `#0${i + 1}`;
     });
 
+    telemetryState.last_active_unit = targetId;
     if (body.fleet_health_score !== undefined) telemetryState.fleet_health_score = Number(body.fleet_health_score);
     if (body.active_anomalies !== undefined) telemetryState.active_anomalies = Number(body.active_anomalies);
     telemetryState.last_updated = new Date().toISOString();
