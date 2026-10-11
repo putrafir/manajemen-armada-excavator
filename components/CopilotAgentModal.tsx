@@ -233,7 +233,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
         ...newMsgs,
         {
           sender: "copilot",
-          text: currentDiag.noServiceNeeded ? `Status Operasi (${currentDiag.unit}): Unit aman dan diizinkan tetap bekerja di pit penambangan (RUL > 1200 jam). Bukan kerusakan.` : `Risk Assessment: Continued high-load operation on ${currentDiag.unit} poses cavitation rupture risk. RUL is below 28h. Standby for field crew.`
+          text: currentDiag.noServiceNeeded ? `Operational Status (${currentDiag.unit}): Machine is healthy and authorized to continue mining on pit face (RUL > 1,200 operating hours). Zero mechanical defect.` : `Risk Assessment: Continued high-load operation on ${currentDiag.unit} poses cavitation rupture risk. RUL is below 28h. Standby for field crew.`
         }
       ]);
     } finally {
@@ -384,7 +384,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
                 {currentDiag.stockoutCritical
                   ? `Emergency Expedited Purchase Order ${currentDiag.emergencyPo?.po_id || 'PO-EMG'} generated and transmitted to regional supplier. Mobile rig held on base. Machine safety lockdown directive active.`
                   : currentDiag.noServiceNeeded
-                    ? <>Advisory beban kerja batuan keras resmi dicatat ke <strong>CMMS Hub Audit Trail</strong> sebagai riwayat operasional. Unit <strong>{currentDiag.unit}</strong> tetap bekerja di pit tanpa mendispatch tim bengkel.</>
+                    ? <>Hard rock excavation load advisory officially logged to <strong>CMMS Hub Audit Trail</strong> as operational baseline. Unit <strong>{currentDiag.unit}</strong> continues production on the pit face without field crew dispatch.</>
                     : <>Work order officially published to <strong>Maintenance CMMS Hub</strong>. Pending workshop planner validation to dispatch <strong>{currentDiag.assignedRig}</strong>.</>
                 }
               </p>
@@ -534,7 +534,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
                     }`} />
                     <span className="font-semibold">
                       {currentDiag.noServiceNeeded
-                        ? `Shift Window: ${currentDiag.shiftWindow || "Tetap Bekerja (Tanpa Interupsi Jadwal Bengkel)"}`
+                        ? `Shift Window: ${currentDiag.shiftWindow || "Continuous Operation (No Workshop Interruption)"}`
                         : currentDiag.stockoutCritical
                           ? "Shift Window: Rig Held at Base • Machine Shutdown Required"
                           : `Shift Window: ${currentDiag.shiftWindow || "Immediate Work Stop Required"}`}
@@ -670,7 +670,7 @@ export default function CopilotAgentModal({ isOpen, onClose, onApprove, unitId }
                 <div className="flex items-center gap-2 text-emerald-800 text-xs font-medium">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>
-                    Unit Operational &bull; Tidak Perlu Work Order CMMS (Arahan kabin sudah aktif)
+                    Unit Operational &bull; No CMMS Work Order Required (In-cab derate advisory active)
                   </span>
                 </div>
 
